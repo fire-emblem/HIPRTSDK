@@ -49,7 +49,7 @@ git submodule update
 ````
 2. Download the HIP RT SDK from [HIP RT prject page](https://gpuopen.com/hiprt/), copy the 'hiprt' directory as explained [here](./hiprt/README.md).
 
-Windows:
+### Windows:
 3. Run premake to generate a solution for Visual Studio 2022:
 ````
 cd tutorials
@@ -58,8 +58,8 @@ cd tutorials
 
 4. Open the solution, compile & run.
 
-Linux:
-3. Run premake like this on Windows, which will generate a make file:
+### Linux:
+3. Run premake like this on Linux, which will generate a make file:
 ````
 cd tutorials
 ../tools/premake5/linux64/premake5 gmake2
