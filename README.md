@@ -47,7 +47,7 @@ You will also need AMD Software: Adrenalin Edition 23.30 or later for Windows an
 git submodule init
 git submodule update
 ````
-2. Download the HIP RT SDK from [HIP RT prject page](https://gpuopen.com/hiprt/), copy hiprt directory here. 
+2. Download the HIP RT SDK from [HIP RT prject page](https://gpuopen.com/hiprt/), copy the 'hiprt' directory as explained [here](./hiprt/README.md).
 
 Windows:
 3. Run premake to generate a solution for Visual Studio 2022:
