@@ -65,10 +65,16 @@ cd tutorials
 ../tools/premake5/linux64/premake5 gmake2
 ````
 
-4. Compile using the make file & run.
+4. Compile using the make file.
 ````
-cd build
-make
+make config=release_x64
+````
+
+5. Run a demo.
+````
+cd dist
+export LD_LIBRARY_PATH=../../hiprt/linux64/:$LD_LIBRARY_PATH
+bin/Release/19_primary_ray64
 ````
 
 These tutorials are made to run on both AMD and NVIDIA by specifying the device index. 
