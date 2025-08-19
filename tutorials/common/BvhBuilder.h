@@ -44,7 +44,7 @@ class BvhBuilder
 	BvhBuilder( void )						   = delete;
 	BvhBuilder& operator=( const BvhBuilder& ) = delete;
 
-	static void build( uint32_t nPrims, const std::vector<Aabb>& primBoxes, std::vector<hiprtBvhNode>& nodes )
+	static void build( uint32_t nPrims, const std::vector<Aabb>& primBoxes, std::vector<hiprtInternalNode>& nodes )
 	{
 		assert( nPrims >= 2 );
 		std::vector<Aabb> rightBoxes( nPrims );
@@ -70,7 +70,7 @@ class BvhBuilder
 
 		std::queue<QueueEntry> queue;
 		queue.push( QueueEntry( 0, 0, nPrims, box ) );
-		nodes.push_back( hiprtBvhNode() );
+		nodes.push_back( hiprtInternalNode() );
 		while ( !queue.empty() )
 		{
 			int	 nodeIndex = queue.front().m_nodeIndex;
@@ -141,12 +141,10 @@ class BvhBuilder
 				}
 			}
 
-			nodes[nodeIndex].childAabbsMin[0] = minLeftBox.m_min;
-			nodes[nodeIndex].childAabbsMax[0] = minLeftBox.m_max;
-			nodes[nodeIndex].childAabbsMin[1] = minRightBox.m_min;
-			nodes[nodeIndex].childAabbsMax[1] = minRightBox.m_max;
-			nodes[nodeIndex].childIndices[2]  = hiprtInvalidValue;
-			nodes[nodeIndex].childIndices[3]  = hiprtInvalidValue;
+			nodes[nodeIndex].aabbMin = min( minLeftBox.m_min, minRightBox.m_min );
+			nodes[nodeIndex].aabbMax = max( minLeftBox.m_max, minRightBox.m_max );
+			for ( uint32_t k = 2; k < 2; ++k )
+				nodes[nodeIndex].childIndices[k] = hiprtInvalidValue;
 
 			if ( minIndex - begin == 1 )
 			{
@@ -158,7 +156,7 @@ class BvhBuilder
 				nodes[nodeIndex].childIndices[0]   = static_cast<int>( nodes.size() );
 				nodes[nodeIndex].childNodeTypes[0] = hiprtBvhNodeTypeInternal;
 				queue.push( QueueEntry( nodes[nodeIndex].childIndices[0], begin, minIndex, minLeftBox ) );
-				nodes.push_back( hiprtBvhNode() );
+				nodes.push_back( hiprtInternalNode() );
 			}
 
 			if ( end - minIndex == 1 )
@@ -171,7 +169,7 @@ class BvhBuilder
 				nodes[nodeIndex].childIndices[1]   = static_cast<int>( nodes.size() );
 				nodes[nodeIndex].childNodeTypes[1] = hiprtBvhNodeTypeInternal;
 				queue.push( QueueEntry( nodes[nodeIndex].childIndices[1], minIndex, end, minRightBox ) );
-				nodes.push_back( hiprtBvhNode() );
+				nodes.push_back( hiprtInternalNode() );
 			}
 		}
 	}
