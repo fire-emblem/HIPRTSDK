@@ -97,6 +97,8 @@ class Tutorial : public TutorialBase
 		CHECK_ORO( oroFree( reinterpret_cast<oroDeviceptr>( mesh.triangleIndices ) ) );
 		CHECK_ORO( oroFree( reinterpret_cast<oroDeviceptr>( mesh.vertices ) ) );
 		CHECK_ORO( oroFree( reinterpret_cast<oroDeviceptr>( pixels ) ) );
+		CHECK_ORO( oroFree( reinterpret_cast<oroDeviceptr>( geomInput.nodeList.leafNodes ) ) );
+		CHECK_ORO( oroFree( reinterpret_cast<oroDeviceptr>( geomInput.nodeList.internalNodes ) ) );
 
 		CHECK_HIPRT( hiprtDestroyGeometry( ctxt, geom ) );
 		CHECK_HIPRT( hiprtDestroyContext( ctxt ) );
