@@ -59,9 +59,12 @@ class Tutorial : public TutorialBase
 		geomInput.primitive.triangleMesh = mesh;
 		buildBvh( geomInput );
 
-		hiprtDevicePtr	  geomTemp = nullptr;
+		size_t			  geomTempSize;
+		hiprtDevicePtr	  geomTemp;
 		hiprtBuildOptions options;
 		options.buildFlags = hiprtBuildFlagBitCustomBvhImport;
+		CHECK_HIPRT( hiprtGetGeometryBuildTemporaryBufferSize( ctxt, geomInput, options, geomTempSize ) );
+		CHECK_ORO( oroMalloc( reinterpret_cast<oroDeviceptr*>( &geomTemp ), geomTempSize ) );
 
 		hiprtGeometry geom;
 		CHECK_HIPRT( hiprtCreateGeometry( ctxt, geomInput, options, geom ) );

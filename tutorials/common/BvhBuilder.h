@@ -143,9 +143,6 @@ class BvhBuilder
 
 			nodes[nodeIndex].aabbMin = min( minLeftBox.m_min, minRightBox.m_min );
 			nodes[nodeIndex].aabbMax = max( minLeftBox.m_max, minRightBox.m_max );
-			for ( uint32_t k = 2; k < 2; ++k )
-				nodes[nodeIndex].childIndices[k] = hiprtInvalidValue;
-
 			if ( minIndex - begin == 1 )
 			{
 				nodes[nodeIndex].childIndices[0]   = indices[minAxis][begin];
