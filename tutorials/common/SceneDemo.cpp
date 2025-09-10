@@ -53,7 +53,8 @@ void SceneDemo::createScene(
 	std::optional<hiprtFrameSRT> frame,
 	hiprtBuildFlags				 bvhBuildFlag )
 {
-	hiprtCreateContext( HIPRT_API_VERSION, m_ctxtInput, scene.m_ctx );
+	CHECK_HIPRT( hiprtCreateContext( HIPRT_API_VERSION, m_ctxtInput, scene.m_ctx ) );
+	CHECK_HIPRT( hiprtSetLogLevel( scene.m_ctx, hiprtLogLevelError ) );
 
 	tinyobj::attrib_t				 attrib;
 	std::vector<tinyobj::shape_t>	 shapes;
@@ -367,7 +368,8 @@ void SceneDemo::createScene(
 						OrochiUtils::free( geomInput.primitive.triangleMesh.vertices );
 						if ( bvhBuildFlag == hiprtBuildFlagBitCustomBvhImport )
 						{
-							OrochiUtils::free( geomInput.nodeList.nodes );
+							OrochiUtils::free( geomInput.nodeList.leafNodes );
+							OrochiUtils::free( geomInput.nodeList.internalNodes );
 							OrochiUtils::free( geomInput.primitive.triangleMesh.trianglePairIndices );
 						}
 					}

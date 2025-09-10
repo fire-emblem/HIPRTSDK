@@ -82,7 +82,6 @@ void TutorialBase::init( uint32_t deviceIndex )
 
 	m_ctxtInput.ctxt   = oroGetRawCtx( m_oroCtx );
 	m_ctxtInput.device = oroGetRawDevice( m_oroDevice );
-	hiprtSetLogLevel( hiprtLogLevelError );
 }
 
 bool TutorialBase::readSourceCode(

@@ -59,9 +59,12 @@ class Tutorial : public TutorialBase
 		geomInput.primitive.triangleMesh = mesh;
 		buildBvh( geomInput );
 
-		hiprtDevicePtr	  geomTemp = nullptr;
+		size_t			  geomTempSize;
+		hiprtDevicePtr	  geomTemp;
 		hiprtBuildOptions options;
 		options.buildFlags = hiprtBuildFlagBitCustomBvhImport;
+		CHECK_HIPRT( hiprtGetGeometryBuildTemporaryBufferSize( ctxt, geomInput, options, geomTempSize ) );
+		CHECK_ORO( oroMalloc( reinterpret_cast<oroDeviceptr*>( &geomTemp ), geomTempSize ) );
 
 		hiprtGeometry geom;
 		CHECK_HIPRT( hiprtCreateGeometry( ctxt, geomInput, options, geom ) );
@@ -97,6 +100,8 @@ class Tutorial : public TutorialBase
 		CHECK_ORO( oroFree( reinterpret_cast<oroDeviceptr>( mesh.triangleIndices ) ) );
 		CHECK_ORO( oroFree( reinterpret_cast<oroDeviceptr>( mesh.vertices ) ) );
 		CHECK_ORO( oroFree( reinterpret_cast<oroDeviceptr>( pixels ) ) );
+		CHECK_ORO( oroFree( reinterpret_cast<oroDeviceptr>( geomInput.nodeList.leafNodes ) ) );
+		CHECK_ORO( oroFree( reinterpret_cast<oroDeviceptr>( geomInput.nodeList.internalNodes ) ) );
 
 		CHECK_HIPRT( hiprtDestroyGeometry( ctxt, geom ) );
 		CHECK_HIPRT( hiprtDestroyContext( ctxt ) );
@@ -105,10 +110,11 @@ class Tutorial : public TutorialBase
 
 void Tutorial::buildBvh( hiprtGeometryBuildInput& buildInput )
 {
-	std::vector<hiprtBvhNode> nodes;
+	std::vector<hiprtInternalNode> internalNodes;
+	std::vector<Aabb>			   primBoxes;
 	if ( buildInput.type == hiprtPrimitiveTypeTriangleMesh )
 	{
-		std::vector<Aabb>	 primBoxes( buildInput.primitive.triangleMesh.triangleCount );
+		primBoxes.resize( buildInput.primitive.triangleMesh.triangleCount );
 		std::vector<uint8_t> verticesRaw(
 			buildInput.primitive.triangleMesh.vertexCount * buildInput.primitive.triangleMesh.vertexStride );
 		std::vector<uint8_t> trianglesRaw(
@@ -136,11 +142,11 @@ void Tutorial::buildBvh( hiprtGeometryBuildInput& buildInput )
 			primBoxes[i].grow( v1 );
 			primBoxes[i].grow( v2 );
 		}
-		BvhBuilder::build( buildInput.primitive.triangleMesh.triangleCount, primBoxes, nodes );
+		BvhBuilder::build( buildInput.primitive.triangleMesh.triangleCount, primBoxes, internalNodes );
 	}
 	else if ( buildInput.type == hiprtPrimitiveTypeAABBList )
 	{
-		std::vector<Aabb>	 primBoxes( buildInput.primitive.aabbList.aabbCount );
+		primBoxes.resize( buildInput.primitive.aabbList.aabbCount );
 		std::vector<uint8_t> primBoxesRaw( buildInput.primitive.aabbList.aabbCount * buildInput.primitive.aabbList.aabbStride );
 		CHECK_ORO( oroMemcpyDtoH(
 			primBoxesRaw.data(),
@@ -153,13 +159,32 @@ void Tutorial::buildBvh( hiprtGeometryBuildInput& buildInput )
 			primBoxes[i].m_min = make_float3( ptr[0] );
 			primBoxes[i].m_max = make_float3( ptr[1] );
 		}
-		BvhBuilder::build( buildInput.primitive.aabbList.aabbCount, primBoxes, nodes );
+		BvhBuilder::build( buildInput.primitive.aabbList.aabbCount, primBoxes, internalNodes );
 	}
-	CHECK_ORO(
-		oroMalloc( reinterpret_cast<oroDeviceptr*>( &buildInput.nodeList.nodes ), nodes.size() * sizeof( hiprtBvhNode ) ) );
+
+	std::vector<hiprtLeafNode> leafNodes( primBoxes.size() );
+	for ( uint32_t i = 0; i < primBoxes.size(); ++i )
+	{
+		leafNodes[i].primID	 = i;
+		leafNodes[i].aabbMin = primBoxes[i].m_min;
+		leafNodes[i].aabbMax = primBoxes[i].m_max;
+	}
+
+	buildInput.nodeList.nodeCount = static_cast<uint32_t>( leafNodes.size() );
+
+	CHECK_ORO( oroMalloc(
+		reinterpret_cast<oroDeviceptr*>( &buildInput.nodeList.leafNodes ), leafNodes.size() * sizeof( hiprtLeafNode ) ) );
 	CHECK_ORO( oroMemcpyHtoD(
-		reinterpret_cast<oroDeviceptr>( buildInput.nodeList.nodes ), nodes.data(), nodes.size() * sizeof( hiprtBvhNode ) ) );
-	buildInput.nodeList.nodeCount = static_cast<uint32_t>( nodes.size() );
+		reinterpret_cast<oroDeviceptr>( buildInput.nodeList.leafNodes ),
+		leafNodes.data(),
+		leafNodes.size() * sizeof( hiprtLeafNode ) ) );
+	CHECK_ORO( oroMalloc(
+		reinterpret_cast<oroDeviceptr*>( &buildInput.nodeList.internalNodes ),
+		internalNodes.size() * sizeof( hiprtInternalNode ) ) );
+	CHECK_ORO( oroMemcpyHtoD(
+		reinterpret_cast<oroDeviceptr>( buildInput.nodeList.internalNodes ),
+		internalNodes.data(),
+		internalNodes.size() * sizeof( hiprtInternalNode ) ) );
 }
 
 int main( int argc, char** argv )
