@@ -169,6 +169,8 @@ Current validated status on this branch:
 
 This path intentionally avoids the old Orochi/premake runtime-bitcode flow for the basic tutorials and instead uses the current HIPRT CUDA runtime build API directly.
 
+For the MACA adaptation review against the official baseline, see [doc/maca-upstream-review-zh.md](doc/maca-upstream-review-zh.md).
+
 ## Introduction to the HIP RT APIs
 
 The minimum example can be found at [tutorials/00_context_creation/main.cpp](tutorials/00_context_creation/main.cpp). On AMD platforms, you need to create a HIP context and device to initialize `hiprt` using `hiprtCreateContext` by passing `hiprtContextCreationInput` object where you need to set the native API context, device, and device type (HIP or CUDA). 
