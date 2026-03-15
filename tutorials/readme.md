@@ -22,3 +22,13 @@
 |[16_fluid_simulation](./16_fluid_simulation)   | <img src="./imgs/16_fluid_simulation.png" alt="drawing" width="100"/>  | | A simple fluid simulation. |
 |[18_shadow_ray](./18_shadow_ray)   | <img src="./imgs/18_shadow_ray.png" alt="drawing" width="100"/>  | [:page_facing_up:](../doc/18_shadow_ray.md) | Shows how to trace a shadow ray in an OBJ scene. |
 |[19_primary_ray](./19_primary_ray)   | <img src="./imgs/19_primary_ray.png" alt="drawing" width="100"/>  | [:page_facing_up:](../doc/19_primary_ray.md) | Shows how to trace different types of primary rays in an OBJ scene. |
+
+## Current Local Validation
+
+Against the current HIPRT tree in `/data/HIPRT`, the following basic tutorials have been adapted and validated on `MACA + cu-bridge`:
+
+- `00_context_creation`
+- `01_geom_intersection`
+- `02_scene_intersection`
+
+They are built through the repository-root `CMakeLists.txt` rather than the historical premake flow.

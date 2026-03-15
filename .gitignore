@@ -3,6 +3,7 @@
 *.sln
 *.png
 build/
+build_basic/
+build_basic_maca/
 hiprt/
 tutorials/dist/
-

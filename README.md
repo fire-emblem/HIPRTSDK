@@ -1,6 +1,6 @@
 # HIP RT SDK
 
-**This repository is only for tutorials. The SDK binaries needs to be downloaded from [HIP RT project page](https://gpuopen.com/hiprt/) and the full source code of HIP RT can be found [here](https://github.com/GPUOpen-LibrariesAndSDKs/HIPRT).**
+**This repository is only for tutorials. The original upstream layout expects prebuilt HIP RT SDK binaries, but this branch also includes a current `CMake + CUDA/cu-bridge` path for the basic tutorials against the in-tree HIPRT project at `/data/HIPRT`.**
 
 HIP RT is a ray tracing library in HIP. The APIs are designed to be minimal and low level, making it easy to write a ray tracing application in HIP. We designed the library and APIs to be simple to use and integrate into any existing HIP applications. Although there are a few other ray tracing APIs which, we designed HIP RT to be simpler and easier to use, so you do not need to learn many new kernel types. 
 
@@ -78,6 +78,42 @@ bin/Release/19_primary_ray64
 ````
 
 These tutorials are made to run on both AMD and NVIDIA by specifying the device index. 
+
+## Current CUDA/cu-bridge Path
+
+For the current local HIPRT mainline in `/data/HIPRT`, this branch provides a direct CMake path for the basic tutorials:
+
+```bash
+MACA_PATH=/opt/maca \
+CUCC_PATH=/opt/maca/tools/cu-bridge \
+CUDA_PATH=/opt/maca/tools/cu-bridge \
+PATH=/opt/maca/tools/cu-bridge/tools:/opt/maca/tools/cu-bridge/bin:$PATH \
+LIBRARY_PATH=/opt/maca/tools/cu-bridge/lib:/opt/mxdriver/lib:${LIBRARY_PATH:-} \
+CUCC_CMAKE_ENTRY=2 \
+cmake_maca -S . -B build_basic_maca -DCMAKE_BUILD_TYPE=Release
+
+cd build_basic_maca
+make_maca -j4 00_context_creation64 01_geom_intersection64 02_scene_intersection64
+```
+
+Run them with:
+
+```bash
+export HIPRT_PATH=/data/HIPRT
+export LD_LIBRARY_PATH=/data/HIPRT/dist/bin/Release:${LD_LIBRARY_PATH:-}
+cd tutorials/dist/bin/Release
+./00_context_creation64
+./01_geom_intersection64
+./02_scene_intersection64
+```
+
+Current validated status on this branch:
+
+- `00_context_creation64`: passed
+- `01_geom_intersection64`: passed and generated `01_geom_intersection.png`
+- `02_scene_intersection64`: passed and generated `02_scene_intersection.png`
+
+This path intentionally avoids the old Orochi/premake runtime-bitcode flow for the basic tutorials and instead uses the current HIPRT CUDA runtime build API directly.
 
 ## Introduction to the HIP RT APIs
 

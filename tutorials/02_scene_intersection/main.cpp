@@ -34,10 +34,12 @@ class Tutorial : public TutorialBase
 		mesh.triangleCount		   = 2;
 		mesh.triangleStride		   = sizeof( hiprtInt3 );
 		uint32_t triangleIndices[] = { 0, 1, 2, 3, 4, 5 };
+		hiprtInt3* dTriangleIndices = nullptr;
 		CHECK_ORO(
-			oroMalloc( reinterpret_cast<oroDeviceptr*>( &mesh.triangleIndices ), mesh.triangleCount * sizeof( hiprtInt3 ) ) );
-		CHECK_ORO( oroMemcpyHtoD(
-			reinterpret_cast<oroDeviceptr>( mesh.triangleIndices ),
+			cudaMalloc( reinterpret_cast<void**>( &dTriangleIndices ), mesh.triangleCount * sizeof( hiprtInt3 ) ) );
+		mesh.triangleIndices = dTriangleIndices;
+		CHECK_ORO( cuMemcpyHtoD(
+			reinterpret_cast<CUdeviceptr>( mesh.triangleIndices ),
 			triangleIndices,
 			mesh.triangleCount * sizeof( hiprtInt3 ) ) );
 
@@ -52,9 +54,11 @@ class Tutorial : public TutorialBase
 			{ -S, S, 0.0f },
 			{ -S + T * S, -S * S, 0.0f },
 			{ -S - T * S, -S * S, 0.0f } };
-		CHECK_ORO( oroMalloc( reinterpret_cast<oroDeviceptr*>( &mesh.vertices ), mesh.vertexCount * sizeof( hiprtFloat3 ) ) );
-		CHECK_ORO( oroMemcpyHtoD(
-			reinterpret_cast<oroDeviceptr>( mesh.vertices ), vertices, mesh.vertexCount * sizeof( hiprtFloat3 ) ) );
+		hiprtFloat3* dVertices = nullptr;
+		CHECK_ORO( cudaMalloc( reinterpret_cast<void**>( &dVertices ), mesh.vertexCount * sizeof( hiprtFloat3 ) ) );
+		mesh.vertices = dVertices;
+		CHECK_ORO( cuMemcpyHtoD(
+			reinterpret_cast<CUdeviceptr>( mesh.vertices ), vertices, mesh.vertexCount * sizeof( hiprtFloat3 ) ) );
 
 		hiprtGeometryBuildInput geomInput;
 		geomInput.type					 = hiprtPrimitiveTypeTriangleMesh;
@@ -65,7 +69,7 @@ class Tutorial : public TutorialBase
 		hiprtBuildOptions options;
 		options.buildFlags = hiprtBuildFlagBitPreferFastBuild;
 		CHECK_HIPRT( hiprtGetGeometryBuildTemporaryBufferSize( ctxt, geomInput, options, geomTempSize ) );
-		CHECK_ORO( oroMalloc( reinterpret_cast<oroDeviceptr*>( &geomTemp ), geomTempSize ) );
+		CHECK_ORO( cudaMalloc( reinterpret_cast<void**>( &geomTemp ), geomTempSize ) );
 
 		hiprtGeometry geom;
 		CHECK_HIPRT( hiprtCreateGeometry( ctxt, geomInput, options, geom ) );
@@ -79,48 +83,47 @@ class Tutorial : public TutorialBase
 		sceneInput.instanceCount			= 1;
 		sceneInput.instanceMasks			= nullptr;
 		sceneInput.instanceTransformHeaders = nullptr;
-		CHECK_ORO( oroMalloc( reinterpret_cast<oroDeviceptr*>( &sceneInput.instances ), sizeof( hiprtInstance ) ) );
-		CHECK_ORO(
-			oroMemcpyHtoD( reinterpret_cast<oroDeviceptr>( sceneInput.instances ), &instance, sizeof( hiprtInstance ) ) );
+		CHECK_ORO( cudaMalloc( reinterpret_cast<void**>( &sceneInput.instances ), sizeof( hiprtInstance ) ) );
+		CHECK_ORO( cuMemcpyHtoD( reinterpret_cast<CUdeviceptr>( sceneInput.instances ), &instance, sizeof( hiprtInstance ) ) );
 
 		hiprtFrameSRT frame;
 		frame.translation	  = { 0.0f, 0.0f, 0.0f };
 		frame.scale			  = { 0.5f, 0.5f, 0.5f };
 		frame.rotation		  = { 0.0f, 0.0f, 1.0f, 0.0f };
 		sceneInput.frameCount = 1;
-		CHECK_ORO( oroMalloc( reinterpret_cast<oroDeviceptr*>( &sceneInput.instanceFrames ), sizeof( hiprtFrameSRT ) ) );
-		CHECK_ORO(
-			oroMemcpyHtoD( reinterpret_cast<oroDeviceptr>( sceneInput.instanceFrames ), &frame, sizeof( hiprtFrameSRT ) ) );
+		CHECK_ORO( cudaMalloc( reinterpret_cast<void**>( &sceneInput.instanceFrames ), sizeof( hiprtFrameSRT ) ) );
+		CHECK_ORO( cuMemcpyHtoD( reinterpret_cast<CUdeviceptr>( sceneInput.instanceFrames ), &frame, sizeof( hiprtFrameSRT ) ) );
 
 		size_t		   sceneTempSize;
 		hiprtDevicePtr sceneTemp = nullptr;
 		CHECK_HIPRT( hiprtGetSceneBuildTemporaryBufferSize( ctxt, sceneInput, options, sceneTempSize ) );
-		CHECK_ORO( oroMalloc( reinterpret_cast<oroDeviceptr*>( &sceneTemp ), sceneTempSize ) );
+		CHECK_ORO( cudaMalloc( reinterpret_cast<void**>( &sceneTemp ), sceneTempSize ) );
 
 		hiprtScene scene = nullptr;
 		CHECK_HIPRT( hiprtCreateScene( ctxt, sceneInput, options, scene ) );
 		CHECK_HIPRT( hiprtBuildScene( ctxt, hiprtBuildOperationBuild, sceneInput, options, sceneTemp, 0, scene ) );
 
 		// we can free the Temporary Buffer just after hiprtBuildScene, as this buffer is only used during the build.
-		CHECK_ORO( oroFree( reinterpret_cast<oroDeviceptr>( sceneTemp ) ) );
+		CHECK_ORO( cudaFree( sceneTemp ) );
 		sceneTemp = nullptr;
 
-		oroFunction func = nullptr;
-		buildTraceKernelFromBitcode( ctxt, "../common/TutorialKernels.h", "SceneIntersectionKernel", func );
+		CUfunction func = nullptr;
+		buildTraceKernel(
+			ctxt, std::filesystem::path( HIPRTSDK_ROOT_DIR ) / "tutorials/common/BasicTutorialKernels.h", "SceneIntersectionKernel", func );
 
 		uint8_t* pixels = nullptr;
-		CHECK_ORO( oroMalloc( reinterpret_cast<oroDeviceptr*>( &pixels ), m_res.x * m_res.y * 4 ) );
+		CHECK_ORO( cudaMalloc( reinterpret_cast<void**>( &pixels ), m_res.x * m_res.y * 4 ) );
 
 		void* args[] = { &scene, &pixels, &m_res };
 		launchKernel( func, m_res.x, m_res.y, args );
 		writeImage( "02_scene_intersection.png", m_res.x, m_res.y, pixels );
 
-		CHECK_ORO( oroFree( reinterpret_cast<oroDeviceptr>( sceneInput.instances ) ) );
-		CHECK_ORO( oroFree( reinterpret_cast<oroDeviceptr>( sceneInput.instanceFrames ) ) );
-		CHECK_ORO( oroFree( reinterpret_cast<oroDeviceptr>( mesh.triangleIndices ) ) );
-		CHECK_ORO( oroFree( reinterpret_cast<oroDeviceptr>( mesh.vertices ) ) );
-		CHECK_ORO( oroFree( reinterpret_cast<oroDeviceptr>( geomTemp ) ) );
-		CHECK_ORO( oroFree( reinterpret_cast<oroDeviceptr>( pixels ) ) );
+		CHECK_ORO( cudaFree( sceneInput.instances ) );
+		CHECK_ORO( cudaFree( sceneInput.instanceFrames ) );
+		CHECK_ORO( cudaFree( dTriangleIndices ) );
+		CHECK_ORO( cudaFree( dVertices ) );
+		CHECK_ORO( cudaFree( geomTemp ) );
+		CHECK_ORO( cudaFree( pixels ) );
 
 		CHECK_HIPRT( hiprtDestroyGeometry( ctxt, geom ) );
 		CHECK_HIPRT( hiprtDestroyScene( ctxt, scene ) );

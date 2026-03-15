@@ -22,28 +22,37 @@
 
 #include <tutorials/common/TutorialBase.h>
 
-#include <hiprt/hiprt_libpath.h>
-
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include <contrib/stbi/stbi_image_write.h>
 
-void checkOro( oroError res, const char* file, uint32_t line )
+void checkOro( cudaError_t res, const char* file, uint32_t line )
 {
-	if ( res != oroSuccess )
+	if ( res != cudaSuccess )
 	{
-		const char* msg;
-		oroGetErrorString( res, &msg );
+		const char* msg = cudaGetErrorString( res );
 		std::cerr << "Orochi error: '" << msg << "' on line " << line << " "
 				  << " in '" << file << "'." << std::endl;
 		exit( EXIT_FAILURE );
 	}
 }
 
-void checkOrortc( orortcResult res, const char* file, uint32_t line )
+void checkOro( CUresult res, const char* file, uint32_t line )
 {
-	if ( res != ORORTC_SUCCESS )
+	if ( res != CUDA_SUCCESS )
 	{
-		std::cerr << "ORORTC error: '" << orortcGetErrorString( res ) << "' [ " << res << " ] on line " << line << " "
+		const char* msg = nullptr;
+		cuGetErrorString( res, &msg );
+		std::cerr << "CUDA error: '" << ( msg ? msg : "unknown" ) << "' [ " << res << " ] on line " << line << " "
+				  << " in '" << file << "'." << std::endl;
+		exit( EXIT_FAILURE );
+	}
+}
+
+void checkNvrtc( nvrtcResult res, const char* file, uint32_t line )
+{
+	if ( res != NVRTC_SUCCESS )
+	{
+		std::cerr << "NVRTC error: '" << nvrtcGetErrorString( res ) << "' [ " << res << " ] on line " << line << " "
 				  << " in '" << file << "'." << std::endl;
 		exit( EXIT_FAILURE );
 	}
@@ -63,25 +72,18 @@ void TutorialBase::init( uint32_t deviceIndex )
 {
 	m_res = { 512, 512 };
 
-	CHECK_ORO(
-		static_cast<oroError>( oroInitialize( (oroApi)( ORO_API_HIP | ORO_API_CUDA ), 0, g_hip_paths, g_hiprtc_paths ) ) );
+	CHECK_ORO( cuInit( 0 ) );
+	CHECK_ORO( cuDeviceGet( &m_cudaDevice, deviceIndex ) );
+	CHECK_ORO( cuCtxCreate( &m_cudaCtx, 0, m_cudaDevice ) );
 
-	CHECK_ORO( oroInit( 0 ) );
-	CHECK_ORO( oroDeviceGet( &m_oroDevice, deviceIndex ) );
-	CHECK_ORO( oroCtxCreate( &m_oroCtx, 0, m_oroDevice ) );
-
-	oroDeviceProp props;
-	CHECK_ORO( oroGetDeviceProperties( &props, m_oroDevice ) );
+	cudaDeviceProp props{};
+	CHECK_ORO( cudaGetDeviceProperties( &props, deviceIndex ) );
 
 	std::cout << "hiprt ver." << HIPRT_VERSION_STR << std::endl;
 	std::cout << "Executing on '" << props.name << "'" << std::endl;
-	if ( std::string( props.name ).find( "NVIDIA" ) != std::string::npos )
-		m_ctxtInput.deviceType = hiprtDeviceNVIDIA;
-	else
-		m_ctxtInput.deviceType = hiprtDeviceAMD;
-
-	m_ctxtInput.ctxt   = oroGetRawCtx( m_oroCtx );
-	m_ctxtInput.device = oroGetRawDevice( m_oroDevice );
+	m_ctxtInput.deviceType = hiprtDeviceNVIDIA;
+	m_ctxtInput.ctxt	   = m_cudaCtx;
+	m_ctxtInput.device	   = m_cudaDevice;
 }
 
 bool TutorialBase::readSourceCode(
@@ -98,18 +100,17 @@ bool TutorialBase::readSourceCode(
 		{
 			sourceCode.clear();
 			std::string line;
-			while ( std::getline( f, line ) )
-			{
-				if ( line.find( "#include" ) != std::string::npos )
+				while ( std::getline( f, line ) )
 				{
-					size_t		pa	= line.find( "<" );
-					size_t		pb	= line.find( ">" );
-					std::string buf = line.substr( pa + 1, pb - pa - 1 );
-					includes.value().push_back( buf );
+					if ( line.find( "#include" ) != std::string::npos )
+					{
+						size_t		pa	= line.find( "<" );
+						size_t		pb	= line.find( ">" );
+						std::string buf = line.substr( pa + 1, pb - pa - 1 );
+						includes.value().push_back( buf );
+					}
 					sourceCode += line + '\n';
 				}
-				sourceCode += line + '\n';
-			}
 		}
 		else
 		{
@@ -123,11 +124,11 @@ bool TutorialBase::readSourceCode(
 	return true;
 }
 
-void TutorialBase::buildTraceKernelFromBitcode(
+void TutorialBase::buildTraceKernel(
 	hiprtContext				   ctxt,
-	const char*					   path,
-	const char*					   functionName,
-	oroFunction&				   functionOut,
+	const std::filesystem::path&   path,
+	const std::string&			   functionName,
+	CUfunction&					   functionOut,
 	std::vector<const char*>*	   opts,
 	std::vector<hiprtFuncNameSet>* funcNameSets,
 	uint32_t					   numGeomTypes,
@@ -140,24 +141,38 @@ void TutorialBase::buildTraceKernelFromBitcode(
 	if ( !readSourceCode( path, sourceCode, includeNamesData ) )
 	{
 		std::cerr << "Unable to find file '" << path << "'" << std::endl;
-		;
 		exit( EXIT_FAILURE );
 	}
 
 	std::vector<std::string> headersData( includeNamesData.size() );
+	std::vector<std::string> includeNameStrings( includeNamesData.size() );
 	std::vector<const char*> headers;
 	std::vector<const char*> includeNames;
-	for ( int i = 0; i < includeNamesData.size(); i++ )
+	const auto sdkRoot = std::filesystem::path( HIPRTSDK_ROOT_DIR );
+	for ( size_t i = 0; i < includeNamesData.size(); i++ )
 	{
-		if ( !readSourceCode( std::string( "../../" ) / includeNamesData[i], headersData[i] ) )
+		const std::vector<std::filesystem::path> candidates = {
+			sdkRoot / "tutorials" / includeNamesData[i],
+			sdkRoot / includeNamesData[i],
+			std::filesystem::path( HIPRT_ROOT_DIRECTORY ) / includeNamesData[i],
+		};
+
+		bool found = false;
+		for ( const auto& candidate : candidates )
 		{
-			if ( !readSourceCode( std::string( "../" ) / includeNamesData[i], headersData[i] ) )
+			if ( readSourceCode( candidate, headersData[i] ) )
 			{
-				std::cerr << "Failed to find header file '" << includeNamesData[i] << "' in path ../ or ../../!" << std::endl;
-				exit( EXIT_FAILURE );
+				found = true;
+				break;
 			}
 		}
-		includeNames.push_back( includeNamesData[i].string().c_str() );
+		if ( !found )
+		{
+			std::cerr << "Failed to find header file '" << includeNamesData[i] << "'." << std::endl;
+			exit( EXIT_FAILURE );
+		}
+		includeNameStrings[i] = includeNamesData[i].string();
+		includeNames.push_back( includeNameStrings[i].c_str() );
 		headers.push_back( headersData[i].c_str() );
 	}
 
@@ -167,92 +182,50 @@ void TutorialBase::buildTraceKernelFromBitcode(
 			options.push_back( o );
 	}
 
-	const bool isAmd = oroGetCurAPI( 0 ) == ORO_API_HIP;
-	if ( isAmd )
-	{
-		options.push_back( "-fgpu-rdc" );
-		options.push_back( "-Xclang" );
-		options.push_back( "-disable-llvm-passes" );
-		options.push_back( "-Xclang" );
-		options.push_back( "-mno-constructor-aliases" );
-	}
-	else
-	{
-		options.push_back( "--device-c" );
-		options.push_back( "-arch=compute_60" );
-	}
-	options.push_back( "-std=c++17" );
-	options.push_back( "-I../" );
-	options.push_back( "-I../../" );
+	options.push_back( "--use_fast_math" );
+	std::string functionNameStorage = functionName;
+	const char* functionNamePtr = functionNameStorage.c_str();
 
-	orortcProgram prog;
-	CHECK_ORORTC( orortcCreateProgram(
-		&prog, sourceCode.data(), path, static_cast<int>( headers.size() ), headers.data(), includeNames.data() ) );
-	CHECK_ORORTC( orortcAddNameExpression( prog, functionName ) );
-
-	orortcResult e = orortcCompileProgram( prog, static_cast<int>( options.size() ), options.data() );
-	if ( e != ORORTC_SUCCESS )
-	{
-		size_t logSize;
-		CHECK_ORORTC( orortcGetProgramLogSize( prog, &logSize ) );
-
-		if ( logSize )
-		{
-			std::string log( logSize, '\0' );
-			orortcGetProgramLog( prog, &log[0] );
-			std::cerr << log << std::endl;
-		}
-		exit( EXIT_FAILURE );
-	}
-
-	std::string bitCodeBinary;
-	size_t		size = 0;
-	if ( isAmd )
-		CHECK_ORORTC( orortcGetBitcodeSize( prog, &size ) );
-	else
-		CHECK_ORORTC( orortcGetCodeSize( prog, &size ) );
-	assert( size != 0 );
-
-	bitCodeBinary.resize( size );
-	if ( isAmd )
-		CHECK_ORORTC( orortcGetBitcode( prog, (char*)bitCodeBinary.data() ) );
-	else
-		CHECK_ORORTC( orortcGetCode( prog, (char*)bitCodeBinary.data() ) );
-
-	hiprtApiFunction function;
-	CHECK_HIPRT( hiprtBuildTraceKernelsFromBitcode(
+	std::vector<hiprtApiFunction> functions( 1 );
+	CHECK_HIPRT( hiprtBuildTraceKernels(
 		ctxt,
 		1,
-		&functionName,
-		path,
-		bitCodeBinary.data(),
-		size,
+		&functionNamePtr,
+		sourceCode.c_str(),
+		path.string().c_str(),
+		static_cast<uint32_t>( headers.size() ),
+		headers.data(),
+		includeNames.data(),
+		static_cast<uint32_t>( options.size() ),
+		options.data(),
 		numGeomTypes,
 		numRayTypes,
 		funcNameSets != nullptr ? funcNameSets->data() : nullptr,
-		&function,
+		functions.data(),
+		nullptr,
 		false ) );
 
-	functionOut = *reinterpret_cast<oroFunction*>( &function );
+	functionOut = *reinterpret_cast<CUfunction*>( &functions[0] );
 }
 
-void TutorialBase::launchKernel( oroFunction func, uint32_t nx, uint32_t ny, void** args )
+void TutorialBase::launchKernel( CUfunction func, uint32_t nx, uint32_t ny, void** args )
 {
 	launchKernel( func, nx, ny, 8, 8, args );
 }
 
-void TutorialBase::launchKernel( oroFunction func, uint32_t nx, uint32_t ny, uint32_t bx, uint32_t by, void** args )
+void TutorialBase::launchKernel( CUfunction func, uint32_t nx, uint32_t ny, uint32_t bx, uint32_t by, void** args )
 {
 	hiprtInt3 nb;
 	nb.x = ( nx + bx - 1 ) / bx;
 	nb.y = ( ny + by - 1 ) / by;
-	CHECK_ORO( oroModuleLaunchKernel( func, nb.x, nb.y, 1, bx, by, 1, 0, 0, args, 0 ) );
+	CHECK_ORO( cuLaunchKernel( func, nb.x, nb.y, 1, bx, by, 1, 0, nullptr, args, nullptr ) );
+	CHECK_ORO( cuCtxSynchronize() );
 }
 
 void TutorialBase::writeImage( const std::string& path, uint32_t width, uint32_t height, uint8_t* pixels )
 {
 	std::vector<uint8_t> image( width * height * 4 );
-	CHECK_ORO( oroMemcpyDtoH( image.data(), reinterpret_cast<oroDeviceptr>( pixels ), width * height * 4 ) );
+	CHECK_ORO( cuMemcpyDtoH( image.data(), reinterpret_cast<CUdeviceptr>( pixels ), width * height * 4 ) );
 	stbi_write_png( path.c_str(), width, height, 4, image.data(), width * 4 );
 	std::cout << "image written at " << path.c_str() << std::endl;
 }

@@ -26,31 +26,27 @@ int main( int argc, char** argv )
 {
 	const int deviceIndex = 0;
 
-	CHECK_ORO( (oroError)oroInitialize( (oroApi)( ORO_API_HIP | ORO_API_CUDA ), 0 ) );
+	CHECK_ORO( cuInit( 0 ) );
 
-	CHECK_ORO( oroInit( 0 ) );
+	CUdevice cudaDevice;
+	CHECK_ORO( cuDeviceGet( &cudaDevice, deviceIndex ) );
 
-	oroDevice oroDevice;
-	CHECK_ORO( oroDeviceGet( &oroDevice, deviceIndex ) );
+	CUcontext cudaCtx;
+	CHECK_ORO( cuCtxCreate( &cudaCtx, 0, cudaDevice ) );
 
-	oroCtx oroCtx;
-	CHECK_ORO( oroCtxCreate( &oroCtx, 0, oroDevice ) );
-
-	oroDeviceProp props;
-	CHECK_ORO( oroGetDeviceProperties( &props, oroDevice ) );
+	cudaDeviceProp props;
+	CHECK_ORO( cudaGetDeviceProperties( &props, deviceIndex ) );
 	std::cout << "Executing on '" << props.name << "'" << std::endl;
 
-	hiprtContextCreationInput ctxtInput;
-	if ( std::string( props.name ).find( "NVIDIA" ) != std::string::npos )
-		ctxtInput.deviceType = hiprtDeviceNVIDIA;
-	else
-		ctxtInput.deviceType = hiprtDeviceAMD;
-	ctxtInput.ctxt	 = oroGetRawCtx( oroCtx );
-	ctxtInput.device = oroGetRawDevice( oroDevice );
+	hiprtContextCreationInput ctxtInput{};
+	ctxtInput.deviceType = hiprtDeviceNVIDIA;
+	ctxtInput.ctxt	   = cudaCtx;
+	ctxtInput.device	   = cudaDevice;
 
 	hiprtContext ctxt;
 	CHECK_HIPRT( hiprtCreateContext( HIPRT_API_VERSION, ctxtInput, ctxt ) );
 	CHECK_HIPRT( hiprtDestroyContext( ctxt ) );
+	CHECK_ORO( cuCtxDestroy( cudaCtx ) );
 
 	return 0;
 }

@@ -21,24 +21,27 @@
 //
 
 #pragma once
-#include <Orochi/Orochi.h>
 #include <array>
+#include <cuda.h>
+#include <cuda_runtime_api.h>
 #include <filesystem>
 #include <fstream>
 #include <hiprt/hiprt.h>
+#include <nvrtc.h>
 #include <optional>
 #include <string>
 #include <tutorials/common/Common.h>
 #include <vector>
 
 #define CHECK_ORO( error ) ( checkOro( error, __FILE__, __LINE__ ) )
-void checkOro( oroError res, const char* file, uint32_t line );
+void checkOro( cudaError_t res, const char* file, uint32_t line );
+void checkOro( CUresult res, const char* file, uint32_t line );
 
 #define CHECK_HIPRT( error ) ( checkHiprt( error, __FILE__, __LINE__ ) )
 void checkHiprt( hiprtError res, const char* file, uint32_t line );
 
-#define CHECK_ORORTC( error ) ( checkOrortc( error, __FILE__, __LINE__ ) )
-void checkOrortc( orortcResult res, const char* file, uint32_t line );
+#define CHECK_NVRTC( error ) ( checkNvrtc( error, __FILE__, __LINE__ ) )
+void checkNvrtc( nvrtcResult res, const char* file, uint32_t line );
 
 class TutorialBase
 {
@@ -48,18 +51,18 @@ class TutorialBase
 
 	virtual void run() = 0;
 
-	void buildTraceKernelFromBitcode(
+	void buildTraceKernel(
 		hiprtContext				   ctxt,
-		const char*					   path,
-		const char*					   functionName,
-		oroFunction&				   functionOut,
+		const std::filesystem::path&   path,
+		const std::string&			   functionName,
+		CUfunction&					   functionOut,
 		std::vector<const char*>*	   opts			= nullptr,
 		std::vector<hiprtFuncNameSet>* funcNameSets = nullptr,
 		uint32_t					   numGeomTypes = 0,
 		uint32_t					   numRayTypes	= 1 );
 
-	void launchKernel( oroFunction func, uint32_t nx, uint32_t ny, void** args );
-	void launchKernel( oroFunction func, uint32_t nx, uint32_t ny, uint32_t bx, uint32_t by, void** args );
+	void launchKernel( CUfunction func, uint32_t nx, uint32_t ny, void** args );
+	void launchKernel( CUfunction func, uint32_t nx, uint32_t ny, uint32_t bx, uint32_t by, void** args );
 
 	static void writeImage( const std::string& path, uint32_t width, uint32_t height, uint8_t* pixels );
 
@@ -70,7 +73,7 @@ class TutorialBase
 
   protected:
 	hiprtContextCreationInput m_ctxtInput;
-	oroCtx					  m_oroCtx;
-	oroDevice				  m_oroDevice;
+	CUcontext				  m_cudaCtx;
+	CUdevice				  m_cudaDevice;
 	hiprtInt2				  m_res;
 };
