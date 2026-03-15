@@ -31,7 +31,42 @@
 
 #include "hiprt/hiprt_common.h"
 
-#include "Orochi/OrochiUtils.h"
+#include <cstring>
+
+namespace DeviceUtils
+{
+template <typename T>
+void malloc( T*& ptr, size_t count )
+{
+	CHECK_ORO( cudaMalloc( reinterpret_cast<void**>( &ptr ), sizeof( T ) * count ) );
+}
+
+template <typename T>
+void copyHtoD( T* dst, const T* src, size_t count )
+{
+	CHECK_ORO( cuMemcpyHtoD( reinterpret_cast<CUdeviceptr>( dst ), src, sizeof( T ) * count ) );
+}
+
+template <typename T>
+void copyHtoDAsync( T* dst, const T* src, size_t count, cudaStream_t stream )
+{
+	CHECK_ORO( cuMemcpyHtoDAsync( reinterpret_cast<CUdeviceptr>( dst ), src, sizeof( T ) * count, stream ) );
+}
+
+template <typename T>
+void memset( T* ptr, int value, size_t count )
+{
+	CHECK_ORO( cuMemsetD8( reinterpret_cast<CUdeviceptr>( ptr ), value, sizeof( T ) * count ) );
+}
+
+inline void waitForCompletion( cudaStream_t stream = nullptr ) { CHECK_ORO( cudaStreamSynchronize( stream ) ); }
+
+template <typename T>
+void free( T* ptr )
+{
+	CHECK_ORO( cudaFree( ptr ) );
+}
+} // namespace DeviceUtils
 
 void SceneDemo::setupScene(
 	Camera&						 camera,
@@ -262,14 +297,14 @@ void SceneDemo::createScene(
 
 	std::vector<std::thread>			  threads( threadCount );
 	std::vector<std::chrono::nanoseconds> bvhBuildTimes( threadCount );
-	std::vector<oroStream>				  streams( threadCount );
+	std::vector<cudaStream_t>			  streams( threadCount );
 	for ( size_t threadIndex = 0; threadIndex < threadCount; ++threadIndex )
 	{
-		CHECK_ORO( oroStreamCreate( &streams[threadIndex] ) );
+		CHECK_ORO( cudaStreamCreate( &streams[threadIndex] ) );
 	}
 
-	oroCtx ctx;
-	CHECK_ORO( oroCtxGetCurrent( &ctx ) );
+	CUcontext ctx;
+	CHECK_ORO( cuCtxGetCurrent( &ctx ) );
 
 	m_scene.m_geometries.resize( shapes.size() );
 	m_scene.m_instances.resize( shapes.size() );
@@ -277,7 +312,7 @@ void SceneDemo::createScene(
 	{
 		threads[threadIndex] = std::thread(
 			[&]( uint32_t threadIndex ) {
-				CHECK_ORO( oroCtxSetCurrent( ctx ) );
+				CHECK_ORO( cuCtxSetCurrent( ctx ) );
 
 				std::vector<hiprtGeometry*>			 geomAddrs;
 				std::vector<hiprtGeometryBuildInput> geomInputs;
@@ -288,9 +323,9 @@ void SceneDemo::createScene(
 					uint32_t* indices	= &allIndices[indicesOffsets[i]];
 					mesh.triangleCount	= static_cast<uint32_t>( shapes[i].mesh.num_face_vertices.size() );
 					mesh.triangleStride = sizeof( uint32_t ) * 3;
-					OrochiUtils::malloc(
+					DeviceUtils::malloc(
 						reinterpret_cast<uint8_t*&>( mesh.triangleIndices ), 3 * mesh.triangleCount * sizeof( uint32_t ) );
-					OrochiUtils::copyHtoDAsync(
+					DeviceUtils::copyHtoDAsync(
 						reinterpret_cast<uint32_t*>( mesh.triangleIndices ),
 						indices,
 						3 * mesh.triangleCount,
@@ -300,8 +335,8 @@ void SceneDemo::createScene(
 					mesh.vertexCount  = ( i + 1 == shapes.size() ) ? vertexPrefixSum - verticesOffsets[i]
 																   : verticesOffsets[i + 1] - verticesOffsets[i];
 					mesh.vertexStride = sizeof( float3 );
-					OrochiUtils::malloc( reinterpret_cast<uint8_t*&>( mesh.vertices ), mesh.vertexCount * sizeof( float3 ) );
-					OrochiUtils::copyHtoDAsync(
+					DeviceUtils::malloc( reinterpret_cast<uint8_t*&>( mesh.vertices ), mesh.vertexCount * sizeof( float3 ) );
+					DeviceUtils::copyHtoDAsync(
 						reinterpret_cast<float3*>( mesh.vertices ), vertices, mesh.vertexCount, streams[threadIndex] );
 
 					hiprtGeometryBuildInput geomInput;
@@ -328,7 +363,7 @@ void SceneDemo::createScene(
 						scene.m_ctx, static_cast<uint32_t>( geomInputs.size() ), geomInputs.data(), options, geomTempSize ) );
 
 					hiprtDevicePtr tempGeomBuffer = nullptr;
-					if ( geomTempSize > 0 ) OrochiUtils::malloc( reinterpret_cast<uint8_t*&>( tempGeomBuffer ), geomTempSize );
+						if ( geomTempSize > 0 ) DeviceUtils::malloc( reinterpret_cast<uint8_t*&>( tempGeomBuffer ), geomTempSize );
 
 					CHECK_HIPRT( hiprtCreateGeometries(
 						scene.m_ctx,
@@ -364,19 +399,19 @@ void SceneDemo::createScene(
 
 					for ( auto& geomInput : geomInputs )
 					{
-						OrochiUtils::free( geomInput.primitive.triangleMesh.triangleIndices );
-						OrochiUtils::free( geomInput.primitive.triangleMesh.vertices );
+							DeviceUtils::free( geomInput.primitive.triangleMesh.triangleIndices );
+							DeviceUtils::free( geomInput.primitive.triangleMesh.vertices );
 						if ( bvhBuildFlag == hiprtBuildFlagBitCustomBvhImport )
 						{
-							OrochiUtils::free( geomInput.nodeList.leafNodes );
-							OrochiUtils::free( geomInput.nodeList.internalNodes );
-							OrochiUtils::free( geomInput.primitive.triangleMesh.trianglePairIndices );
+								DeviceUtils::free( geomInput.nodeList.leafNodes );
+								DeviceUtils::free( geomInput.nodeList.internalNodes );
+								DeviceUtils::free( geomInput.primitive.triangleMesh.trianglePairIndices );
 						}
 					}
 
-					if ( geomTempSize > 0 ) OrochiUtils::free( tempGeomBuffer );
+						if ( geomTempSize > 0 ) DeviceUtils::free( tempGeomBuffer );
 
-					OrochiUtils::waitForCompletion( streams[threadIndex] );
+						DeviceUtils::waitForCompletion( streams[threadIndex] );
 				}
 			},
 			threadIndex );
@@ -385,43 +420,43 @@ void SceneDemo::createScene(
 	for ( size_t threadIndex = 0; threadIndex < threadCount; ++threadIndex )
 	{
 		threads[threadIndex].join();
-		CHECK_ORO( oroStreamDestroy( streams[threadIndex] ) );
+		CHECK_ORO( cudaStreamDestroy( streams[threadIndex] ) );
 		bvhBuildTime = std::max( bvhBuildTime, bvhBuildTimes[threadIndex] );
 	}
 
 	// copy vertex offset
-	OrochiUtils::malloc( scene.m_vertexOffsets, verticesOffsets.size() );
-	OrochiUtils::copyHtoD( scene.m_vertexOffsets, verticesOffsets.data(), verticesOffsets.size() );
+	DeviceUtils::malloc( scene.m_vertexOffsets, verticesOffsets.size() );
+	DeviceUtils::copyHtoD( scene.m_vertexOffsets, verticesOffsets.data(), verticesOffsets.size() );
 	scene.m_garbageCollector.push_back( scene.m_vertexOffsets );
 
 	// copy normals
-	OrochiUtils::malloc( scene.m_normals, allNormals.size() );
-	OrochiUtils::copyHtoD( scene.m_normals, allNormals.data(), allNormals.size() );
+	DeviceUtils::malloc( scene.m_normals, allNormals.size() );
+	DeviceUtils::copyHtoD( scene.m_normals, allNormals.data(), allNormals.size() );
 	scene.m_garbageCollector.push_back( scene.m_normals );
 
 	// copy normal offsets
-	OrochiUtils::malloc( scene.m_normalOffsets, normalsOffsets.size() );
-	OrochiUtils::copyHtoD( scene.m_normalOffsets, normalsOffsets.data(), normalsOffsets.size() );
+	DeviceUtils::malloc( scene.m_normalOffsets, normalsOffsets.size() );
+	DeviceUtils::copyHtoD( scene.m_normalOffsets, normalsOffsets.data(), normalsOffsets.size() );
 	scene.m_garbageCollector.push_back( scene.m_normalOffsets );
 
 	// copy indices
-	OrochiUtils::malloc( scene.m_indices, allIndices.size() );
-	OrochiUtils::copyHtoD( scene.m_indices, allIndices.data(), allIndices.size() );
+	DeviceUtils::malloc( scene.m_indices, allIndices.size() );
+	DeviceUtils::copyHtoD( scene.m_indices, allIndices.data(), allIndices.size() );
 	scene.m_garbageCollector.push_back( scene.m_indices );
 
 	// copy index offsets
-	OrochiUtils::malloc( scene.m_indexOffsets, indicesOffsets.size() );
-	OrochiUtils::copyHtoD( scene.m_indexOffsets, indicesOffsets.data(), indicesOffsets.size() );
+	DeviceUtils::malloc( scene.m_indexOffsets, indicesOffsets.size() );
+	DeviceUtils::copyHtoD( scene.m_indexOffsets, indicesOffsets.data(), indicesOffsets.size() );
 	scene.m_garbageCollector.push_back( scene.m_indexOffsets );
 
 	// copy material indices
-	OrochiUtils::malloc( scene.m_bufMaterialIndices, materialIndices.size() );
-	OrochiUtils::copyHtoD( scene.m_bufMaterialIndices, materialIndices.data(), materialIndices.size() );
+	DeviceUtils::malloc( scene.m_bufMaterialIndices, materialIndices.size() );
+	DeviceUtils::copyHtoD( scene.m_bufMaterialIndices, materialIndices.data(), materialIndices.size() );
 	scene.m_garbageCollector.push_back( scene.m_bufMaterialIndices );
 
 	// copy material offset
-	OrochiUtils::malloc( scene.m_bufMatIdsPerInstance, matIdxOffset.size() );
-	OrochiUtils::copyHtoD( scene.m_bufMatIdsPerInstance, matIdxOffset.data(), matIdxOffset.size() );
+	DeviceUtils::malloc( scene.m_bufMatIdsPerInstance, matIdxOffset.size() );
+	DeviceUtils::copyHtoD( scene.m_bufMatIdsPerInstance, matIdxOffset.data(), matIdxOffset.size() );
 	scene.m_garbageCollector.push_back( scene.m_bufMatIdsPerInstance );
 
 	// copy materials
@@ -432,21 +467,21 @@ void SceneDemo::createScene(
 		mat.m_emission = hiprt::make_float3( 0.0f );
 		shapeMaterials.push_back( mat );
 	}
-	OrochiUtils::malloc( scene.m_bufMaterials, shapeMaterials.size() );
-	OrochiUtils::copyHtoD( scene.m_bufMaterials, shapeMaterials.data(), shapeMaterials.size() );
+	DeviceUtils::malloc( scene.m_bufMaterials, shapeMaterials.size() );
+	DeviceUtils::copyHtoD( scene.m_bufMaterials, shapeMaterials.data(), shapeMaterials.size() );
 	scene.m_garbageCollector.push_back( scene.m_bufMaterials );
 
 	// copy light
 	if ( !lights.empty() )
 	{
-		OrochiUtils::malloc( scene.m_lights, lights.size() );
-		OrochiUtils::copyHtoD( scene.m_lights, lights.data(), lights.size() );
+		DeviceUtils::malloc( scene.m_lights, lights.size() );
+		DeviceUtils::copyHtoD( scene.m_lights, lights.data(), lights.size() );
 		scene.m_garbageCollector.push_back( scene.m_lights );
 	}
 
 	// copy light num
-	OrochiUtils::malloc( scene.m_numOfLights, 1 );
-	OrochiUtils::copyHtoD( scene.m_numOfLights, &numOfLights, 1 );
+	DeviceUtils::malloc( scene.m_numOfLights, 1 );
+	DeviceUtils::copyHtoD( scene.m_numOfLights, &numOfLights, 1 );
 	scene.m_garbageCollector.push_back( scene.m_numOfLights );
 
 	// prepare scene
@@ -455,13 +490,13 @@ void SceneDemo::createScene(
 	hiprtSceneBuildInput sceneInput;
 	{
 		sceneInput.instanceCount = static_cast<uint32_t>( shapes.size() );
-		OrochiUtils::malloc( reinterpret_cast<uint32_t*&>( sceneInput.instanceMasks ), sceneInput.instanceCount );
-		OrochiUtils::copyHtoD(
+		DeviceUtils::malloc( reinterpret_cast<uint32_t*&>( sceneInput.instanceMasks ), sceneInput.instanceCount );
+		DeviceUtils::copyHtoD(
 			reinterpret_cast<uint32_t*>( sceneInput.instanceMasks ), instanceMask.data(), sceneInput.instanceCount );
 		scene.m_garbageCollector.push_back( sceneInput.instanceMasks );
 
-		OrochiUtils::malloc( reinterpret_cast<hiprtInstance*&>( sceneInput.instances ), sceneInput.instanceCount );
-		OrochiUtils::copyHtoD(
+		DeviceUtils::malloc( reinterpret_cast<hiprtInstance*&>( sceneInput.instances ), sceneInput.instanceCount );
+		DeviceUtils::copyHtoD(
 			reinterpret_cast<hiprtInstance*>( sceneInput.instances ), m_scene.m_instances.data(), sceneInput.instanceCount );
 		scene.m_garbageCollector.push_back( sceneInput.instances );
 
@@ -482,8 +517,8 @@ void SceneDemo::createScene(
 			frames.push_back( frame ? frame.value() : transform );
 		}
 
-		OrochiUtils::malloc( reinterpret_cast<hiprtFrameSRT*&>( sceneInput.instanceFrames ), frames.size() );
-		OrochiUtils::copyHtoD( reinterpret_cast<hiprtFrameSRT*>( sceneInput.instanceFrames ), frames.data(), frames.size() );
+		DeviceUtils::malloc( reinterpret_cast<hiprtFrameSRT*&>( sceneInput.instanceFrames ), frames.size() );
+		DeviceUtils::copyHtoD( reinterpret_cast<hiprtFrameSRT*>( sceneInput.instanceFrames ), frames.data(), frames.size() );
 		scene.m_garbageCollector.push_back( sceneInput.instanceFrames );
 
 		size_t			  sceneTempSize;
@@ -492,7 +527,7 @@ void SceneDemo::createScene(
 		CHECK_HIPRT( hiprtGetSceneBuildTemporaryBufferSize( scene.m_ctx, sceneInput, options, sceneTempSize ) );
 		if ( sceneTempSize > 0 )
 		{
-			OrochiUtils::malloc( reinterpret_cast<uint8_t*&>( sceneTemp ), sceneTempSize );
+				DeviceUtils::malloc( reinterpret_cast<uint8_t*&>( sceneTemp ), sceneTempSize );
 			scene.m_garbageCollector.push_back( sceneTemp );
 		}
 
@@ -528,8 +563,8 @@ void SceneDemo::render(
 	float								 aoRadius )
 {
 	uint8_t* dst;
-	OrochiUtils::malloc( dst, m_res.x * m_res.y * 4 );
-	OrochiUtils::memset( dst, 0, m_res.x * m_res.y * 4 );
+	DeviceUtils::malloc( dst, m_res.x * m_res.y * 4 );
+	DeviceUtils::memset( dst, 0, m_res.x * m_res.y * 4 );
 	m_scene.m_garbageCollector.push_back( dst );
 
 	uint32_t	   stackSize		  = 64u;
@@ -551,10 +586,10 @@ void SceneDemo::render(
 	hiprtGlobalStackBuffer stackBuffer;
 	CHECK_HIPRT( hiprtCreateGlobalStackBuffer( m_scene.m_ctx, stackBufferInput, stackBuffer ) );
 
-	oroFunction	   func		 = nullptr;
+	CUfunction	   func		 = nullptr;
 	hiprtFuncTable funcTable = nullptr;
 
-	buildTraceKernelFromBitcode( m_scene.m_ctx, kernelPath.u8string().c_str(), funcName.c_str(), func );
+	buildTraceKernel( m_scene.m_ctx, kernelPath, funcName, func, &opts );
 
 	int2  res	 = { m_res.x, m_res.y };
 	void* args[] = {
@@ -576,17 +611,17 @@ void SceneDemo::render(
 		&funcTable };
 
 	int numRegs;
-	CHECK_ORO( oroFuncGetAttribute( &numRegs, ORO_FUNC_ATTRIBUTE_NUM_REGS, func ) );
+	CHECK_ORO( cuFuncGetAttribute( &numRegs, CU_FUNC_ATTRIBUTE_NUM_REGS, func ) );
 
 	int numSmem;
-	CHECK_ORO( oroFuncGetAttribute( &numSmem, ORO_FUNC_ATTRIBUTE_SHARED_SIZE_BYTES, func ) );
+	CHECK_ORO( cuFuncGetAttribute( &numSmem, CU_FUNC_ATTRIBUTE_SHARED_SIZE_BYTES, func ) );
 
 	std::cout << "Trace kernel: registers " << numRegs << ", shared memory " << numSmem << std::endl;
-	OrochiUtils::waitForCompletion();
+	DeviceUtils::waitForCompletion();
 	std::chrono::high_resolution_clock::time_point begin = std::chrono::high_resolution_clock::now();
 	launchKernel( func, m_res.x, m_res.y, blockWidth, blockHeight, args );
 
-	OrochiUtils::waitForCompletion();
+	DeviceUtils::waitForCompletion();
 	std::chrono::high_resolution_clock::time_point end = std::chrono::high_resolution_clock::now();
 
 	CHECK_HIPRT( hiprtDestroyGlobalStackBuffer( m_scene.m_ctx, stackBuffer ) );

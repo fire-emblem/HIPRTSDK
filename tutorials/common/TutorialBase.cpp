@@ -220,7 +220,9 @@ void TutorialBase::buildTraceKernel(
 				options.push_back( o );
 		}
 
+		std::string sdkRootInclude = "-I" + sdkRoot.string();
 		std::string tutorialInclude = "-I" + ( sdkRoot / "tutorials" ).string();
+		options.push_back( sdkRootInclude.c_str() );
 		options.push_back( tutorialInclude.c_str() );
 		options.push_back( "--use_fast_math" );
 	std::string functionNameStorage = functionName;

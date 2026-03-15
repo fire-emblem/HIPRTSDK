@@ -31,9 +31,12 @@ class Tutorial : public SceneDemo
 	void run()
 	{
 		Camera camera = createCamera();
-
-		setupScene( camera, "../common/meshes/cornellpot/cornellpot.obj", "../common/meshes/cornellpot/" );
-		render( "18_shadow_ray.png", "../common/ShadowRayKernel.h", "ShadowRayKernel" );
+		const auto meshRoot = std::filesystem::path( HIPRTSDK_ROOT_DIR ) / "tutorials/common/meshes/cornellpot";
+		setupScene( camera, ( meshRoot / "cornellpot.obj" ).string(), ( meshRoot.string() + "/" ) );
+		render(
+			"18_shadow_ray.png",
+			std::filesystem::path( HIPRTSDK_ROOT_DIR ) / "tutorials/common/ShadowRayKernel.h",
+			"ShadowRayKernel" );
 		deleteScene( m_scene );
 		return;
 	}

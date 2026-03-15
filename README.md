@@ -111,6 +111,8 @@ make_maca -j4 \
   15_multi_level_instancing64 \
   16_fluid_simulation64 \
   17_hiprt_hip64 \
+  18_shadow_ray64 \
+  19_primary_ray64 \
   12_cutout64
 ```
 
@@ -137,6 +139,8 @@ cd tutorials/dist/bin/Release
 ./15_multi_level_instancing64
 ./16_fluid_simulation64
 ./17_hiprt_hip64
+./18_shadow_ray64
+./19_primary_ray64
 ./12_cutout64
 ```
 
@@ -159,6 +163,8 @@ Current validated status on this branch:
 - `15_multi_level_instancing64`: passed and generated `15_multi_level_instancing.png`
 - `16_fluid_simulation64`: passed and generated `16_fluid_simulation.png`
 - `17_hiprt_hip64`: passed
+- `18_shadow_ray64`: passed and generated `18_shadow_ray.png`
+- `19_primary_ray64`: passed and generated `19_primary_ray_normal.png`, `19_primary_ray_uv.png`, `19_primary_ray_primId.png`, `19_primary_ray_depth.png`
 - `12_cutout64`: passed and generated `12_cutout.png`
 
 This path intentionally avoids the old Orochi/premake runtime-bitcode flow for the basic tutorials and instead uses the current HIPRT CUDA runtime build API directly.

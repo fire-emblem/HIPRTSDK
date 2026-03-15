@@ -44,6 +44,8 @@ Against the current HIPRT tree in `/data/HIPRT`, the following basic tutorials h
 - `15_multi_level_instancing`
 - `16_fluid_simulation`
 - `17_hiprt_hip`
+- `18_shadow_ray`
+- `19_primary_ray`
 - `12_cutout`
 
 They are built through the repository-root `CMakeLists.txt` rather than the historical premake flow.

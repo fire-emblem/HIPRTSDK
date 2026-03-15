@@ -24,6 +24,7 @@ endif()
 
 set(TUTORIAL_COMMON_SOURCES
 	${CMAKE_CURRENT_SOURCE_DIR}/tutorials/common/TutorialBase.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/tutorials/common/SceneDemo.cpp
 )
 
 set(TUTORIAL_COMMON_INCLUDES
@@ -66,3 +67,5 @@ add_hiprtsdk_tutorial(10_motion_blur_matrix64 ${CMAKE_CURRENT_SOURCE_DIR}/tutori
 add_hiprtsdk_tutorial(17_hiprt_hip64 ${CMAKE_CURRENT_SOURCE_DIR}/tutorials/17_hiprt_hip/main.cpp)
 add_hiprtsdk_tutorial(11_multi_custom_intersection64 ${CMAKE_CURRENT_SOURCE_DIR}/tutorials/11_multi_custom_intersection/main.cpp)
 add_hiprtsdk_tutorial(16_fluid_simulation64 ${CMAKE_CURRENT_SOURCE_DIR}/tutorials/16_fluid_simulation/main.cpp)
+add_hiprtsdk_tutorial(18_shadow_ray64 ${CMAKE_CURRENT_SOURCE_DIR}/tutorials/18_shadow_ray/main.cpp)
+add_hiprtsdk_tutorial(19_primary_ray64 ${CMAKE_CURRENT_SOURCE_DIR}/tutorials/19_primary_ray/main.cpp)

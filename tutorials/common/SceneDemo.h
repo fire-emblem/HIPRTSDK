@@ -29,8 +29,6 @@ class SceneDemo : public TutorialBase
   public:
 	SceneDemo()
 	{
-		m_oroCtx = nullptr;
-
 		m_ctxtInput.ctxt	   = nullptr;
 		m_ctxtInput.device	   = 0;
 		m_ctxtInput.deviceType = (hiprtDeviceType)-1;
@@ -122,9 +120,7 @@ class SceneDemo : public TutorialBase
 	void TearDown()
 	{
 		for ( auto p : m_scene.m_garbageCollector )
-			free( p );
-
-		CHECK_ORO( oroCtxDestroy( m_oroCtx ) );
+			cudaFree( p );
 	}
 
 	void render(

@@ -49,10 +49,11 @@ class Tutorial : public SceneDemo
 		};
 
 		Camera camera = createCamera();
+		const auto meshRoot = std::filesystem::path( HIPRTSDK_ROOT_DIR ) / "tutorials/common/meshes/cornellpot";
 		setupScene(
 			camera,
-			"../common/meshes/cornellpot/cornellpot.obj",
-			"../common/meshes/cornellpot/",
+			( meshRoot / "cornellpot.obj" ).string(),
+			meshRoot.string() + "/",
 			false,
 			std::nullopt,
 			hiprtBuildFlagBitPreferFastBuild );
@@ -61,7 +62,10 @@ class Tutorial : public SceneDemo
 		{
 			const std::string kernelName = "PrimaryRayKernel_" + std::to_string( o.i );
 
-			render( "19_primary_ray_" + o.name + ".png", "../common/PrimaryRayKernel.h", kernelName );
+			render(
+				"19_primary_ray_" + o.name + ".png",
+				std::filesystem::path( HIPRTSDK_ROOT_DIR ) / "tutorials/common/PrimaryRayKernel.h",
+				kernelName );
 		}
 
 		deleteScene( m_scene );
