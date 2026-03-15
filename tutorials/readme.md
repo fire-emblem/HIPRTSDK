@@ -30,5 +30,7 @@ Against the current HIPRT tree in `/data/HIPRT`, the following basic tutorials h
 - `00_context_creation`
 - `01_geom_intersection`
 - `02_scene_intersection`
+- `03_custom_intersection`
+- `12_cutout`
 
 They are built through the repository-root `CMakeLists.txt` rather than the historical premake flow.

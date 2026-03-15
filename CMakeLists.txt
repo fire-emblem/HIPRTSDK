@@ -52,3 +52,4 @@ add_hiprtsdk_tutorial(00_context_creation64 ${CMAKE_CURRENT_SOURCE_DIR}/tutorial
 add_hiprtsdk_tutorial(01_geom_intersection64 ${CMAKE_CURRENT_SOURCE_DIR}/tutorials/01_geom_intersection/main.cpp)
 add_hiprtsdk_tutorial(02_scene_intersection64 ${CMAKE_CURRENT_SOURCE_DIR}/tutorials/02_scene_intersection/main.cpp)
 add_hiprtsdk_tutorial(03_custom_intersection64 ${CMAKE_CURRENT_SOURCE_DIR}/tutorials/03_custom_intersection/main.cpp)
+add_hiprtsdk_tutorial(12_cutout64 ${CMAKE_CURRENT_SOURCE_DIR}/tutorials/12_cutout/main.cpp)
