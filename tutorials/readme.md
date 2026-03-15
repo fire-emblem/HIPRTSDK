@@ -34,6 +34,7 @@ Against the current HIPRT tree in `/data/HIPRT`, the following basic tutorials h
 - `04_compaction`
 - `05_global_stack`
 - `06_dynamic_stack`
+- `07_custom_bvh_import`
 - `08_ambient_occlusion`
 - `12_cutout`
 

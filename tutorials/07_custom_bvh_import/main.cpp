@@ -39,18 +39,22 @@ class Tutorial : public TutorialBase
 		mesh.triangleStride = sizeof( hiprtInt3 );
 		std::array<uint32_t, 3 * CornellBoxTriangleCount> triangleIndices;
 		std::iota( triangleIndices.begin(), triangleIndices.end(), 0 );
+		hiprtInt3* dTriangleIndices = nullptr;
 		CHECK_ORO(
-			oroMalloc( reinterpret_cast<oroDeviceptr*>( &mesh.triangleIndices ), mesh.triangleCount * sizeof( hiprtInt3 ) ) );
-		CHECK_ORO( oroMemcpyHtoD(
-			reinterpret_cast<oroDeviceptr>( mesh.triangleIndices ),
+			cudaMalloc( reinterpret_cast<void**>( &dTriangleIndices ), mesh.triangleCount * sizeof( hiprtInt3 ) ) );
+		mesh.triangleIndices = dTriangleIndices;
+		CHECK_ORO( cuMemcpyHtoD(
+			reinterpret_cast<CUdeviceptr>( mesh.triangleIndices ),
 			triangleIndices.data(),
 			mesh.triangleCount * sizeof( hiprtInt3 ) ) );
 
 		mesh.vertexCount  = 3 * mesh.triangleCount;
 		mesh.vertexStride = sizeof( hiprtFloat3 );
-		CHECK_ORO( oroMalloc( reinterpret_cast<oroDeviceptr*>( &mesh.vertices ), mesh.vertexCount * sizeof( hiprtFloat3 ) ) );
-		CHECK_ORO( oroMemcpyHtoD(
-			reinterpret_cast<oroDeviceptr>( mesh.vertices ),
+		hiprtFloat3* dVertices = nullptr;
+		CHECK_ORO( cudaMalloc( reinterpret_cast<void**>( &dVertices ), mesh.vertexCount * sizeof( hiprtFloat3 ) ) );
+		mesh.vertices = dVertices;
+		CHECK_ORO( cuMemcpyHtoD(
+			reinterpret_cast<CUdeviceptr>( mesh.vertices ),
 			const_cast<hiprtFloat3*>( cornellBoxVertices.data() ),
 			mesh.vertexCount * sizeof( hiprtFloat3 ) ) );
 
@@ -64,30 +68,34 @@ class Tutorial : public TutorialBase
 		hiprtBuildOptions options;
 		options.buildFlags = hiprtBuildFlagBitCustomBvhImport;
 		CHECK_HIPRT( hiprtGetGeometryBuildTemporaryBufferSize( ctxt, geomInput, options, geomTempSize ) );
-		CHECK_ORO( oroMalloc( reinterpret_cast<oroDeviceptr*>( &geomTemp ), geomTempSize ) );
+		CHECK_ORO( cudaMalloc( reinterpret_cast<void**>( &geomTemp ), geomTempSize ) );
 
 		hiprtGeometry geom;
 		CHECK_HIPRT( hiprtCreateGeometry( ctxt, geomInput, options, geom ) );
 		CHECK_HIPRT( hiprtBuildGeometry( ctxt, hiprtBuildOperationBuild, geomInput, options, geomTemp, 0, geom ) );
 
-		oroFunction func;
-		buildTraceKernelFromBitcode( ctxt, "../common/TutorialKernels.h", "CustomBvhImportKernel", func );
+		CUfunction func = nullptr;
+		buildTraceKernel(
+			ctxt,
+			std::filesystem::path( HIPRTSDK_ROOT_DIR ) / "tutorials/common/CustomBvhImportTutorialKernels.h",
+			"CustomBvhImportKernel",
+			func );
 
-		uint8_t* pixels;
-		CHECK_ORO( oroMalloc( reinterpret_cast<oroDeviceptr*>( &pixels ), m_res.x * m_res.y * 4 ) );
+		uint8_t* pixels = nullptr;
+		CHECK_ORO( cudaMalloc( reinterpret_cast<void**>( &pixels ), m_res.x * m_res.y * 4 ) );
 
-		uint32_t* matIndices;
-		CHECK_ORO( oroMalloc( reinterpret_cast<oroDeviceptr*>( &matIndices ), mesh.triangleCount * sizeof( uint32_t ) ) );
-		CHECK_ORO( oroMemcpyHtoD(
-			reinterpret_cast<oroDeviceptr>( matIndices ),
+		uint32_t* matIndices = nullptr;
+		CHECK_ORO( cudaMalloc( reinterpret_cast<void**>( &matIndices ), mesh.triangleCount * sizeof( uint32_t ) ) );
+		CHECK_ORO( cuMemcpyHtoD(
+			reinterpret_cast<CUdeviceptr>( matIndices ),
 			cornellBoxMatIndices.data(),
 			mesh.triangleCount * sizeof( uint32_t ) ) );
 
-		hiprtFloat3* diffusColors;
+		hiprtFloat3* diffusColors = nullptr;
 		CHECK_ORO(
-			oroMalloc( reinterpret_cast<oroDeviceptr*>( &diffusColors ), CornellBoxMaterialCount * sizeof( hiprtFloat3 ) ) );
-		CHECK_ORO( oroMemcpyHtoD(
-			reinterpret_cast<oroDeviceptr>( diffusColors ),
+			cudaMalloc( reinterpret_cast<void**>( &diffusColors ), CornellBoxMaterialCount * sizeof( hiprtFloat3 ) ) );
+		CHECK_ORO( cuMemcpyHtoD(
+			reinterpret_cast<CUdeviceptr>( diffusColors ),
 			const_cast<hiprtFloat3*>( cornellBoxDiffuseColors.data() ),
 			CornellBoxMaterialCount * sizeof( hiprtFloat3 ) ) );
 
@@ -95,13 +103,14 @@ class Tutorial : public TutorialBase
 		launchKernel( func, m_res.x, m_res.y, args );
 		writeImage( "07_custom_bvh_import.png", m_res.x, m_res.y, pixels );
 
-		CHECK_ORO( oroFree( reinterpret_cast<oroDeviceptr>( matIndices ) ) );
-		CHECK_ORO( oroFree( reinterpret_cast<oroDeviceptr>( diffusColors ) ) );
-		CHECK_ORO( oroFree( reinterpret_cast<oroDeviceptr>( mesh.triangleIndices ) ) );
-		CHECK_ORO( oroFree( reinterpret_cast<oroDeviceptr>( mesh.vertices ) ) );
-		CHECK_ORO( oroFree( reinterpret_cast<oroDeviceptr>( pixels ) ) );
-		CHECK_ORO( oroFree( reinterpret_cast<oroDeviceptr>( geomInput.nodeList.leafNodes ) ) );
-		CHECK_ORO( oroFree( reinterpret_cast<oroDeviceptr>( geomInput.nodeList.internalNodes ) ) );
+		CHECK_ORO( cudaFree( matIndices ) );
+		CHECK_ORO( cudaFree( diffusColors ) );
+		CHECK_ORO( cudaFree( dTriangleIndices ) );
+		CHECK_ORO( cudaFree( dVertices ) );
+		CHECK_ORO( cudaFree( pixels ) );
+		CHECK_ORO( cudaFree( geomTemp ) );
+		CHECK_ORO( cudaFree( geomInput.nodeList.leafNodes ) );
+		CHECK_ORO( cudaFree( geomInput.nodeList.internalNodes ) );
 
 		CHECK_HIPRT( hiprtDestroyGeometry( ctxt, geom ) );
 		CHECK_HIPRT( hiprtDestroyContext( ctxt ) );
@@ -119,13 +128,13 @@ void Tutorial::buildBvh( hiprtGeometryBuildInput& buildInput )
 			buildInput.primitive.triangleMesh.vertexCount * buildInput.primitive.triangleMesh.vertexStride );
 		std::vector<uint8_t> trianglesRaw(
 			buildInput.primitive.triangleMesh.triangleCount * buildInput.primitive.triangleMesh.triangleStride );
-		CHECK_ORO( oroMemcpyDtoH(
+		CHECK_ORO( cuMemcpyDtoH(
 			verticesRaw.data(),
-			reinterpret_cast<oroDeviceptr>( buildInput.primitive.triangleMesh.vertices ),
+			reinterpret_cast<CUdeviceptr>( buildInput.primitive.triangleMesh.vertices ),
 			buildInput.primitive.triangleMesh.vertexCount * buildInput.primitive.triangleMesh.vertexStride ) );
-		CHECK_ORO( oroMemcpyDtoH(
+		CHECK_ORO( cuMemcpyDtoH(
 			trianglesRaw.data(),
-			reinterpret_cast<oroDeviceptr>( buildInput.primitive.triangleMesh.triangleIndices ),
+			reinterpret_cast<CUdeviceptr>( buildInput.primitive.triangleMesh.triangleIndices ),
 			buildInput.primitive.triangleMesh.triangleCount * buildInput.primitive.triangleMesh.triangleStride ) );
 		for ( uint32_t i = 0; i < buildInput.primitive.triangleMesh.triangleCount; ++i )
 		{
@@ -148,16 +157,15 @@ void Tutorial::buildBvh( hiprtGeometryBuildInput& buildInput )
 	{
 		primBoxes.resize( buildInput.primitive.aabbList.aabbCount );
 		std::vector<uint8_t> primBoxesRaw( buildInput.primitive.aabbList.aabbCount * buildInput.primitive.aabbList.aabbStride );
-		CHECK_ORO( oroMemcpyDtoH(
+		CHECK_ORO( cuMemcpyDtoH(
 			primBoxesRaw.data(),
-			reinterpret_cast<oroDeviceptr>( buildInput.primitive.aabbList.aabbs ),
+			reinterpret_cast<CUdeviceptr>( buildInput.primitive.aabbList.aabbs ),
 			buildInput.primitive.aabbList.aabbCount * buildInput.primitive.aabbList.aabbStride ) );
 		for ( uint32_t i = 0; i < buildInput.primitive.aabbList.aabbCount; ++i )
 		{
-			hiprtFloat4* ptr =
-				reinterpret_cast<hiprtFloat4*>( primBoxesRaw.data() + i * buildInput.primitive.aabbList.aabbStride );
-			primBoxes[i].m_min = make_float3( ptr[0] );
-			primBoxes[i].m_max = make_float3( ptr[1] );
+			hiprtFloat4* ptr = reinterpret_cast<hiprtFloat4*>( primBoxesRaw.data() + i * buildInput.primitive.aabbList.aabbStride );
+			primBoxes[i].m_min = { ptr[0].x, ptr[0].y, ptr[0].z };
+			primBoxes[i].m_max = { ptr[1].x, ptr[1].y, ptr[1].z };
 		}
 		BvhBuilder::build( buildInput.primitive.aabbList.aabbCount, primBoxes, internalNodes );
 	}
@@ -172,17 +180,16 @@ void Tutorial::buildBvh( hiprtGeometryBuildInput& buildInput )
 
 	buildInput.nodeList.nodeCount = static_cast<uint32_t>( leafNodes.size() );
 
-	CHECK_ORO( oroMalloc(
-		reinterpret_cast<oroDeviceptr*>( &buildInput.nodeList.leafNodes ), leafNodes.size() * sizeof( hiprtLeafNode ) ) );
-	CHECK_ORO( oroMemcpyHtoD(
-		reinterpret_cast<oroDeviceptr>( buildInput.nodeList.leafNodes ),
+	CHECK_ORO( cudaMalloc( reinterpret_cast<void**>( &buildInput.nodeList.leafNodes ), leafNodes.size() * sizeof( hiprtLeafNode ) ) );
+	CHECK_ORO( cuMemcpyHtoD(
+		reinterpret_cast<CUdeviceptr>( buildInput.nodeList.leafNodes ),
 		leafNodes.data(),
 		leafNodes.size() * sizeof( hiprtLeafNode ) ) );
-	CHECK_ORO( oroMalloc(
-		reinterpret_cast<oroDeviceptr*>( &buildInput.nodeList.internalNodes ),
+	CHECK_ORO( cudaMalloc(
+		reinterpret_cast<void**>( &buildInput.nodeList.internalNodes ),
 		internalNodes.size() * sizeof( hiprtInternalNode ) ) );
-	CHECK_ORO( oroMemcpyHtoD(
-		reinterpret_cast<oroDeviceptr>( buildInput.nodeList.internalNodes ),
+	CHECK_ORO( cuMemcpyHtoD(
+		reinterpret_cast<CUdeviceptr>( buildInput.nodeList.internalNodes ),
 		internalNodes.data(),
 		internalNodes.size() * sizeof( hiprtInternalNode ) ) );
 }

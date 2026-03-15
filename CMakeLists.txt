@@ -55,5 +55,6 @@ add_hiprtsdk_tutorial(03_custom_intersection64 ${CMAKE_CURRENT_SOURCE_DIR}/tutor
 add_hiprtsdk_tutorial(04_compaction64 ${CMAKE_CURRENT_SOURCE_DIR}/tutorials/04_compaction/main.cpp)
 add_hiprtsdk_tutorial(05_global_stack64 ${CMAKE_CURRENT_SOURCE_DIR}/tutorials/05_global_stack/main.cpp)
 add_hiprtsdk_tutorial(06_dynamic_stack64 ${CMAKE_CURRENT_SOURCE_DIR}/tutorials/06_dynamic_stack/main.cpp)
+add_hiprtsdk_tutorial(07_custom_bvh_import64 ${CMAKE_CURRENT_SOURCE_DIR}/tutorials/07_custom_bvh_import/main.cpp)
 add_hiprtsdk_tutorial(08_ambient_occlusion64 ${CMAKE_CURRENT_SOURCE_DIR}/tutorials/08_ambient_occlusion/main.cpp)
 add_hiprtsdk_tutorial(12_cutout64 ${CMAKE_CURRENT_SOURCE_DIR}/tutorials/12_cutout/main.cpp)

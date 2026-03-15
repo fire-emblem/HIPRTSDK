@@ -101,6 +101,7 @@ make_maca -j4 \
   04_compaction64 \
   05_global_stack64 \
   06_dynamic_stack64 \
+  07_custom_bvh_import64 \
   08_ambient_occlusion64 \
   12_cutout64
 ```
@@ -118,6 +119,7 @@ cd tutorials/dist/bin/Release
 ./04_compaction64
 ./05_global_stack64
 ./06_dynamic_stack64
+./07_custom_bvh_import64
 ./08_ambient_occlusion64
 ./12_cutout64
 ```
@@ -131,6 +133,7 @@ Current validated status on this branch:
 - `04_compaction64`: passed and generated `04_compaction.png`
 - `05_global_stack64`: passed and generated `05_global_stack.png`
 - `06_dynamic_stack64`: passed and generated `06_dynamic_stack.png`
+- `07_custom_bvh_import64`: passed and generated `07_custom_bvh_import.png`
 - `08_ambient_occlusion64`: passed and generated `08_ambient_occlusion.png`
 - `12_cutout64`: passed and generated `12_cutout.png`
 
