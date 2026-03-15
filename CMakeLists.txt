@@ -61,3 +61,7 @@ add_hiprtsdk_tutorial(12_cutout64 ${CMAKE_CURRENT_SOURCE_DIR}/tutorials/12_cutou
 add_hiprtsdk_tutorial(13_concurrent_scene_build64 ${CMAKE_CURRENT_SOURCE_DIR}/tutorials/13_concurrent_scene_build/main.cpp)
 add_hiprtsdk_tutorial(14_batch_build64 ${CMAKE_CURRENT_SOURCE_DIR}/tutorials/14_batch_build/main.cpp)
 add_hiprtsdk_tutorial(15_multi_level_instancing64 ${CMAKE_CURRENT_SOURCE_DIR}/tutorials/15_multi_level_instancing/main.cpp)
+add_hiprtsdk_tutorial(09_motion_blur_srt64 ${CMAKE_CURRENT_SOURCE_DIR}/tutorials/09_motion_blur_srt/main.cpp)
+add_hiprtsdk_tutorial(10_motion_blur_matrix64 ${CMAKE_CURRENT_SOURCE_DIR}/tutorials/10_motion_blur_matrix/main.cpp)
+add_hiprtsdk_tutorial(17_hiprt_hip64 ${CMAKE_CURRENT_SOURCE_DIR}/tutorials/17_hiprt_hip/main.cpp)
+add_hiprtsdk_tutorial(11_multi_custom_intersection64 ${CMAKE_CURRENT_SOURCE_DIR}/tutorials/11_multi_custom_intersection/main.cpp)

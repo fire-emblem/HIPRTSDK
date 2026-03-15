@@ -1,24 +1,6 @@
 //
 // Copyright (c) 2021-2023 Advanced Micro Devices, Inc. All rights reserved.
 //
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
-//
-// The above copyright notice and this permission notice shall be included in
-// all copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-// THE SOFTWARE.
-//
 
 #include <tutorials/common/TutorialBase.h>
 
@@ -27,171 +9,157 @@ class Tutorial : public TutorialBase
   public:
 	void run()
 	{
-		constexpr uint32_t SphereTypeIndex = 0;
-		constexpr uint32_t CircleTypeIndex = 1;
-		constexpr uint32_t GeomTypesCount  = 2;
-
-		hiprtFloat4 sphere = { -0.3f, 0.0f, 0.0f, 0.2f };
-		hiprtFloat4 circle = { 0.3f, 0.0f, 0.0f, 0.2f };
-
 		hiprtContext ctxt;
 		CHECK_HIPRT( hiprtCreateContext( HIPRT_API_VERSION, m_ctxtInput, ctxt ) );
 
-		hiprtGeometry		   geomSpheres;
-		hiprtAABBListPrimitive listSpheres;
+		hiprtGeometry geoms[2]{};
+
+		hiprtAABBListPrimitive listSpheres{};
 		{
-			listSpheres.aabbCount  = 1;
-			listSpheres.aabbStride = 2 * sizeof( hiprtFloat4 );
-			hiprtFloat4 aabb[]	   = {
+			const hiprtFloat4 sphere = { -0.15f, 0.0f, 0.0f, 0.15f };
+			const hiprtFloat4 aabb[] = {
 				{ sphere.x - sphere.w, sphere.y - sphere.w, sphere.z - sphere.w, 0.0f },
-				{ sphere.x + sphere.w, sphere.y + sphere.w, sphere.z + sphere.w, 0.0f } };
-			CHECK_ORO( oroMalloc( reinterpret_cast<oroDeviceptr*>( &listSpheres.aabbs ), 2 * sizeof( hiprtFloat4 ) ) );
-			CHECK_ORO( oroMemcpyHtoD( reinterpret_cast<oroDeviceptr>( listSpheres.aabbs ), aabb, 2 * sizeof( hiprtFloat4 ) ) );
+				{ sphere.x + sphere.w, sphere.y + sphere.w, sphere.z + sphere.w, 0.0f },
+			};
+			hiprtFloat4* dAabbs = nullptr;
+			CHECK_ORO( cudaMalloc( reinterpret_cast<void**>( &dAabbs ), sizeof( aabb ) ) );
+			listSpheres.aabbs = dAabbs;
+			listSpheres.aabbCount = 1;
+			listSpheres.aabbStride = 2 * sizeof( hiprtFloat4 );
+			CHECK_ORO( cuMemcpyHtoD( reinterpret_cast<CUdeviceptr>( dAabbs ), aabb, sizeof( aabb ) ) );
 
-			hiprtGeometryBuildInput geomInput;
-			geomInput.type				 = hiprtPrimitiveTypeAABBList;
+			hiprtGeometryBuildInput geomInput{};
+			geomInput.type = hiprtPrimitiveTypeAABBList;
 			geomInput.primitive.aabbList = listSpheres;
-			geomInput.geomType			 = SphereTypeIndex;
+			geomInput.geomType = 0;
 
-			size_t			  geomTempSize;
-			hiprtDevicePtr	  geomTemp;
-			hiprtBuildOptions options;
+			hiprtBuildOptions options{};
 			options.buildFlags = hiprtBuildFlagBitPreferFastBuild;
+			size_t geomTempSize = 0;
+			hiprtDevicePtr geomTemp = nullptr;
 			CHECK_HIPRT( hiprtGetGeometryBuildTemporaryBufferSize( ctxt, geomInput, options, geomTempSize ) );
-			CHECK_ORO( oroMalloc( reinterpret_cast<oroDeviceptr*>( &geomTemp ), geomTempSize ) );
-
-			CHECK_HIPRT( hiprtCreateGeometry( ctxt, geomInput, options, geomSpheres ) );
-			CHECK_HIPRT( hiprtBuildGeometry( ctxt, hiprtBuildOperationBuild, geomInput, options, geomTemp, 0, geomSpheres ) );
-			CHECK_ORO( oroFree( reinterpret_cast<oroDeviceptr>( geomTemp ) ) );
+			CHECK_ORO( cudaMalloc( reinterpret_cast<void**>( &geomTemp ), geomTempSize ) );
+			CHECK_HIPRT( hiprtCreateGeometry( ctxt, geomInput, options, geoms[0] ) );
+			CHECK_HIPRT( hiprtBuildGeometry( ctxt, hiprtBuildOperationBuild, geomInput, options, geomTemp, 0, geoms[0] ) );
+			CHECK_ORO( cudaFree( geomTemp ) );
 		}
 
-		hiprtGeometry		   geomCircles;
-		hiprtAABBListPrimitive listCircles;
+		hiprtAABBListPrimitive listCircles{};
 		{
-			listCircles.aabbCount  = 1;
+			const hiprtFloat4 circle = { 0.15f, 0.0f, 0.0f, 0.15f };
+			const hiprtFloat4 aabb[] = {
+				{ circle.x - circle.w, circle.y - circle.w, circle.z, 0.0f },
+				{ circle.x + circle.w, circle.y + circle.w, circle.z, 0.0f },
+			};
+			hiprtFloat4* dAabbs = nullptr;
+			CHECK_ORO( cudaMalloc( reinterpret_cast<void**>( &dAabbs ), sizeof( aabb ) ) );
+			listCircles.aabbs = dAabbs;
+			listCircles.aabbCount = 1;
 			listCircles.aabbStride = 2 * sizeof( hiprtFloat4 );
-			hiprtFloat4 aabb[]	   = {
-				{ circle.x - circle.w, circle.y - circle.w, circle.z - circle.w, 0.0f },
-				{ circle.x + circle.w, circle.y + circle.w, circle.z + circle.w, 0.0f } };
-			CHECK_ORO( oroMalloc( reinterpret_cast<oroDeviceptr*>( &listCircles.aabbs ), 2 * sizeof( hiprtFloat4 ) ) );
-			CHECK_ORO( oroMemcpyHtoD( reinterpret_cast<oroDeviceptr>( listCircles.aabbs ), aabb, 2 * sizeof( hiprtFloat4 ) ) );
+			CHECK_ORO( cuMemcpyHtoD( reinterpret_cast<CUdeviceptr>( dAabbs ), aabb, sizeof( aabb ) ) );
 
-			hiprtGeometryBuildInput geomInput;
-			geomInput.type				 = hiprtPrimitiveTypeAABBList;
+			hiprtGeometryBuildInput geomInput{};
+			geomInput.type = hiprtPrimitiveTypeAABBList;
 			geomInput.primitive.aabbList = listCircles;
-			geomInput.geomType			 = CircleTypeIndex;
+			geomInput.geomType = 1;
 
-			size_t			  geomTempSize;
-			hiprtDevicePtr	  geomTemp;
-			hiprtBuildOptions options;
+			hiprtBuildOptions options{};
 			options.buildFlags = hiprtBuildFlagBitPreferFastBuild;
+			size_t geomTempSize = 0;
+			hiprtDevicePtr geomTemp = nullptr;
 			CHECK_HIPRT( hiprtGetGeometryBuildTemporaryBufferSize( ctxt, geomInput, options, geomTempSize ) );
-			CHECK_ORO( oroMalloc( reinterpret_cast<oroDeviceptr*>( &geomTemp ), geomTempSize ) );
-
-			CHECK_HIPRT( hiprtCreateGeometry( ctxt, geomInput, options, geomCircles ) );
-			CHECK_HIPRT( hiprtBuildGeometry( ctxt, hiprtBuildOperationBuild, geomInput, options, geomTemp, 0, geomCircles ) );
-			CHECK_ORO( oroFree( reinterpret_cast<oroDeviceptr>( geomTemp ) ) );
+			CHECK_ORO( cudaMalloc( reinterpret_cast<void**>( &geomTemp ), geomTempSize ) );
+			CHECK_HIPRT( hiprtCreateGeometry( ctxt, geomInput, options, geoms[1] ) );
+			CHECK_HIPRT( hiprtBuildGeometry( ctxt, hiprtBuildOperationBuild, geomInput, options, geomTemp, 0, geoms[1] ) );
+			CHECK_ORO( cudaFree( geomTemp ) );
 		}
 
-		hiprtScene			 scene;
-		hiprtSceneBuildInput sceneInput;
+		hiprtInstance instances[2]{};
+		for ( int i = 0; i < 2; ++i )
 		{
-			hiprtInstance instSpheres;
-			instSpheres.type	 = hiprtInstanceTypeGeometry;
-			instSpheres.geometry = geomSpheres;
-
-			hiprtInstance instCircles;
-			instCircles.type	 = hiprtInstanceTypeGeometry;
-			instCircles.geometry = geomCircles;
-
-			hiprtInstance instances[] = { instSpheres, instCircles };
-
-			sceneInput.instanceCount			= GeomTypesCount;
-			sceneInput.instanceMasks			= nullptr;
-			sceneInput.instanceTransformHeaders = nullptr;
-			sceneInput.frameCount				= sceneInput.instanceCount;
-			CHECK_ORO( oroMalloc(
-				reinterpret_cast<oroDeviceptr*>( &sceneInput.instances ),
-				sceneInput.instanceCount * sizeof( hiprtInstance ) ) );
-			CHECK_ORO( oroMemcpyHtoD(
-				reinterpret_cast<oroDeviceptr>( sceneInput.instances ),
-				instances,
-				sceneInput.instanceCount * sizeof( hiprtInstance ) ) );
-
-			std::vector<hiprtFrameSRT> frames;
-			hiprtFrameSRT			   frame;
-			frame.translation = { 0.0f, 0.0f, 0.0f };
-			frame.scale		  = { 1.0f, 1.0f, 1.0f };
-			frame.rotation	  = { 0.0f, 0.0f, 1.0f, 0.0f };
-			for ( int i = 0; i < sceneInput.instanceCount; i++ )
-				frames.push_back( frame );
-
-			CHECK_ORO( oroMalloc(
-				reinterpret_cast<oroDeviceptr*>( &sceneInput.instanceFrames ), frames.size() * sizeof( hiprtFrameSRT ) ) );
-			CHECK_ORO( oroMemcpyHtoD(
-				reinterpret_cast<oroDeviceptr>( sceneInput.instanceFrames ),
-				frames.data(),
-				frames.size() * sizeof( hiprtFrameSRT ) ) );
-
-			size_t			  sceneTempSize;
-			hiprtDevicePtr	  sceneTemp;
-			hiprtBuildOptions options;
-			options.buildFlags = hiprtBuildFlagBitPreferFastBuild;
-			CHECK_HIPRT( hiprtGetSceneBuildTemporaryBufferSize( ctxt, sceneInput, options, sceneTempSize ) );
-			CHECK_ORO( oroMalloc( reinterpret_cast<oroDeviceptr*>( &sceneTemp ), sceneTempSize ) );
-
-			CHECK_HIPRT( hiprtCreateScene( ctxt, sceneInput, options, scene ) );
-			CHECK_HIPRT( hiprtBuildScene( ctxt, hiprtBuildOperationBuild, sceneInput, options, sceneTemp, 0, scene ) );
-			CHECK_ORO( oroFree( reinterpret_cast<oroDeviceptr>( sceneTemp ) ) );
+			instances[i].type = hiprtInstanceTypeGeometry;
+			instances[i].geometry = geoms[i];
 		}
 
-		std::vector<hiprtFuncNameSet> funcNameSets( GeomTypesCount );
-		funcNameSets[SphereTypeIndex].intersectFuncName = "intersectSphere";
-		funcNameSets[CircleTypeIndex].intersectFuncName = "intersectCircle";
+		hiprtSceneBuildInput sceneInput{};
+		sceneInput.instanceCount = 2;
+		CHECK_ORO( cudaMalloc( reinterpret_cast<void**>( &sceneInput.instances ), sizeof( instances ) ) );
+		CHECK_ORO( cuMemcpyHtoD( reinterpret_cast<CUdeviceptr>( sceneInput.instances ), instances, sizeof( instances ) ) );
 
-		oroFunction func;
-		buildTraceKernelFromBitcode(
+		hiprtFrameSRT frames[2]{};
+		frames[0].translation = { 0.0f, 0.1f, 0.0f };
+		frames[0].scale = { 1.0f, 1.0f, 1.0f };
+		frames[0].rotation = { 0.0f, 0.0f, 1.0f, 0.0f };
+		frames[1].translation = { 0.0f, -0.1f, 0.0f };
+		frames[1].scale = { 1.0f, 1.0f, 1.0f };
+		frames[1].rotation = { 0.0f, 0.0f, 1.0f, 0.0f };
+		sceneInput.frameCount = 2;
+		sceneInput.frameType = hiprtFrameTypeSRT;
+		CHECK_ORO( cudaMalloc( reinterpret_cast<void**>( &sceneInput.instanceFrames ), sizeof( frames ) ) );
+		CHECK_ORO( cuMemcpyHtoD( reinterpret_cast<CUdeviceptr>( sceneInput.instanceFrames ), frames, sizeof( frames ) ) );
+
+		hiprtBuildOptions sceneOptions{};
+		sceneOptions.buildFlags = hiprtBuildFlagBitPreferFastBuild;
+		size_t sceneTempSize = 0;
+		hiprtDevicePtr sceneTemp = nullptr;
+		CHECK_HIPRT( hiprtGetSceneBuildTemporaryBufferSize( ctxt, sceneInput, sceneOptions, sceneTempSize ) );
+		CHECK_ORO( cudaMalloc( reinterpret_cast<void**>( &sceneTemp ), sceneTempSize ) );
+
+		hiprtScene scene = nullptr;
+		CHECK_HIPRT( hiprtCreateScene( ctxt, sceneInput, sceneOptions, scene ) );
+		CHECK_HIPRT( hiprtBuildScene( ctxt, hiprtBuildOperationBuild, sceneInput, sceneOptions, sceneTemp, 0, scene ) );
+		CHECK_ORO( cudaFree( sceneTemp ) );
+
+		hiprtFuncNameSet funcNameSets[2]{};
+		funcNameSets[0].intersectFuncName = "intersectSphere";
+		funcNameSets[1].intersectFuncName = "intersectCircle";
+
+		hiprtFloat4* dSphere = nullptr;
+		hiprtFloat4* dCircle = nullptr;
+		const hiprtFloat4 sphere = { -0.15f, 0.0f, 0.0f, 0.15f };
+		const hiprtFloat4 circle = { 0.15f, 0.0f, 0.0f, 0.15f };
+		CHECK_ORO( cudaMalloc( reinterpret_cast<void**>( &dSphere ), sizeof( sphere ) ) );
+		CHECK_ORO( cudaMalloc( reinterpret_cast<void**>( &dCircle ), sizeof( circle ) ) );
+		CHECK_ORO( cuMemcpyHtoD( reinterpret_cast<CUdeviceptr>( dSphere ), &sphere, sizeof( sphere ) ) );
+		CHECK_ORO( cuMemcpyHtoD( reinterpret_cast<CUdeviceptr>( dCircle ), &circle, sizeof( circle ) ) );
+
+		hiprtFuncDataSet funcDataSets[2]{};
+		funcDataSets[0].intersectFuncData = dSphere;
+		funcDataSets[1].intersectFuncData = dCircle;
+
+		hiprtFuncTable funcTable;
+		CHECK_HIPRT( hiprtCreateFuncTable( ctxt, 2, 1, funcTable ) );
+		CHECK_HIPRT( hiprtSetFuncTable( ctxt, funcTable, 0, 0, funcDataSets[0] ) );
+		CHECK_HIPRT( hiprtSetFuncTable( ctxt, funcTable, 1, 0, funcDataSets[1] ) );
+
+		CUfunction func = nullptr;
+		std::vector<hiprtFuncNameSet> funcNameSetVec = { funcNameSets[0], funcNameSets[1] };
+		buildTraceKernel(
 			ctxt,
-			"../common/TutorialKernels.h",
+			std::filesystem::path( HIPRTSDK_ROOT_DIR ) / "tutorials/common/MultiCustomTutorialKernels.h",
 			"MultiCustomIntersectionKernel",
 			func,
 			nullptr,
-			&funcNameSets,
-			GeomTypesCount,
+			&funcNameSetVec,
+			2,
 			1 );
 
-		std::vector<hiprtFuncDataSet> funcDataSets( GeomTypesCount );
-		CHECK_ORO(
-			oroMalloc( const_cast<oroDeviceptr*>( &funcDataSets[SphereTypeIndex].intersectFuncData ), sizeof( hiprtFloat4 ) ) );
-		CHECK_ORO( oroMemcpyHtoD(
-			const_cast<oroDeviceptr>( funcDataSets[SphereTypeIndex].intersectFuncData ), &sphere, sizeof( hiprtFloat4 ) ) );
-		CHECK_ORO(
-			oroMalloc( const_cast<oroDeviceptr*>( &funcDataSets[CircleTypeIndex].intersectFuncData ), sizeof( hiprtFloat4 ) ) );
-		CHECK_ORO( oroMemcpyHtoD(
-			const_cast<oroDeviceptr>( funcDataSets[CircleTypeIndex].intersectFuncData ), &circle, sizeof( hiprtFloat4 ) ) );
-
-		hiprtFuncTable funcTable;
-		CHECK_HIPRT( hiprtCreateFuncTable( ctxt, GeomTypesCount, 1, funcTable ) );
-		CHECK_HIPRT( hiprtSetFuncTable( ctxt, funcTable, SphereTypeIndex, 0, funcDataSets[SphereTypeIndex] ) );
-		CHECK_HIPRT( hiprtSetFuncTable( ctxt, funcTable, CircleTypeIndex, 0, funcDataSets[CircleTypeIndex] ) );
-
-		uint8_t* pixels;
-		CHECK_ORO( oroMalloc( reinterpret_cast<oroDeviceptr*>( &pixels ), m_res.x * m_res.y * 4 ) );
-
+		uint8_t* pixels = nullptr;
+		CHECK_ORO( cudaMalloc( reinterpret_cast<void**>( &pixels ), m_res.x * m_res.y * 4 ) );
 		void* args[] = { &scene, &pixels, &funcTable, &m_res };
 		launchKernel( func, m_res.x, m_res.y, args );
 		writeImage( "11_multi_custom_intersection.png", m_res.x, m_res.y, pixels );
 
-		CHECK_ORO( oroFree( reinterpret_cast<oroDeviceptr>( listSpheres.aabbs ) ) );
-		CHECK_ORO( oroFree( reinterpret_cast<oroDeviceptr>( listCircles.aabbs ) ) );
-		CHECK_ORO( oroFree( reinterpret_cast<oroDeviceptr>( sceneInput.instanceFrames ) ) );
-		CHECK_ORO( oroFree( reinterpret_cast<oroDeviceptr>( sceneInput.instances ) ) );
-		CHECK_ORO( oroFree( const_cast<oroDeviceptr>( funcDataSets[SphereTypeIndex].intersectFuncData ) ) );
-		CHECK_ORO( oroFree( const_cast<oroDeviceptr>( funcDataSets[CircleTypeIndex].intersectFuncData ) ) );
-		CHECK_ORO( oroFree( reinterpret_cast<oroDeviceptr>( pixels ) ) );
-
-		CHECK_HIPRT( hiprtDestroyGeometry( ctxt, geomSpheres ) );
-		CHECK_HIPRT( hiprtDestroyGeometry( ctxt, geomCircles ) );
+		CHECK_ORO( cudaFree( sceneInput.instances ) );
+		CHECK_ORO( cudaFree( sceneInput.instanceFrames ) );
+		CHECK_ORO( cudaFree( dSphere ) );
+		CHECK_ORO( cudaFree( dCircle ) );
+		CHECK_ORO( cudaFree( listSpheres.aabbs ) );
+		CHECK_ORO( cudaFree( listCircles.aabbs ) );
+		CHECK_ORO( cudaFree( pixels ) );
+		CHECK_HIPRT( hiprtDestroyFuncTable( ctxt, funcTable ) );
+		CHECK_HIPRT( hiprtDestroyGeometry( ctxt, geoms[0] ) );
+		CHECK_HIPRT( hiprtDestroyGeometry( ctxt, geoms[1] ) );
 		CHECK_HIPRT( hiprtDestroyScene( ctxt, scene ) );
 		CHECK_HIPRT( hiprtDestroyContext( ctxt ) );
 	}
@@ -202,6 +170,5 @@ int main( int argc, char** argv )
 	Tutorial tutorial;
 	tutorial.init( 0 );
 	tutorial.run();
-
 	return 0;
 }

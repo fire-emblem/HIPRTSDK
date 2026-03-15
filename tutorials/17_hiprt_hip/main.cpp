@@ -20,60 +20,30 @@
 // THE SOFTWARE.
 //
 
-#if defined( __USE_HIP__ )
-#include <hip/hip_runtime.h>
-#include <hiprt/hiprt.h>
-#include <hiprt/hiprt_vec.h>
-
-#define CHECK_HIP( error ) ( checkHip( error, __FILE__, __LINE__ ) )
-void checkHip( hipError_t res, const char* file, int line )
-{
-	if ( res != hipSuccess )
-	{
-		std::cerr << "HIP error: '" << hipGetErrorString( res ) << "' on line " << line << " "
-				  << " in '" << file << "'." << std::endl;
-		exit( EXIT_FAILURE );
-	}
-}
-
-#define CHECK_HIPRT( error ) ( checkHiprt( error, __FILE__, __LINE__ ) )
-void checkHiprt( hiprtError res, const char* file, int line )
-{
-	if ( res != hiprtSuccess )
-	{
-		std::cerr << "HIPRT error: '" << res << "' on line " << line << " "
-				  << " in '" << file << "'." << std::endl;
-		exit( EXIT_FAILURE );
-	}
-}
-#endif
+#include <tutorials/common/TutorialBase.h>
 
 int main( int argc, char** argv )
 {
-#if defined( __USE_HIP__ )
-	CHECK_HIP( hipInit( 0 ) );
+	CHECK_ORO( cuInit( 0 ) );
 
-	hipDevice_t hipDevice;
-	CHECK_HIP( hipGetDevice( &hipDevice ) );
+	CUdevice cudaDevice;
+	CHECK_ORO( cuDeviceGet( &cudaDevice, 0 ) );
 
-	hipCtx_t hipCtx;
-	CHECK_HIP( hipCtxCreate( &hipCtx, 0, hipDevice ) );
+	CUcontext cudaCtx;
+	CHECK_ORO( cuCtxCreate( &cudaCtx, 0, cudaDevice ) );
 
-	hipDeviceProp_t props;
-	CHECK_HIP( hipGetDeviceProperties( &props, hipDevice ) );
+	cudaDeviceProp props{};
+	CHECK_ORO( cudaGetDeviceProperties( &props, 0 ) );
 	std::cout << "Executing on '" << props.name << "'" << std::endl;
 
-	hiprtContextCreationInput ctxtInput;
-	if ( std::string( props.name ).find( "NVIDIA" ) != std::string::npos )
-		ctxtInput.deviceType = hiprtDeviceNVIDIA;
-	else
-		ctxtInput.deviceType = hiprtDeviceAMD;
-	ctxtInput.ctxt	 = hipCtx;
-	ctxtInput.device = hipDevice;
+	hiprtContextCreationInput ctxtInput{};
+	ctxtInput.deviceType = hiprtDeviceNVIDIA;
+	ctxtInput.ctxt	   = cudaCtx;
+	ctxtInput.device	   = cudaDevice;
 
 	hiprtContext ctxt;
 	CHECK_HIPRT( hiprtCreateContext( HIPRT_API_VERSION, ctxtInput, ctxt ) );
 	CHECK_HIPRT( hiprtDestroyContext( ctxt ) );
-#endif
+	CHECK_ORO( cuCtxDestroy( cudaCtx ) );
 	return 0;
 }

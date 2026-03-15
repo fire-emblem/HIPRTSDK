@@ -103,9 +103,13 @@ make_maca -j4 \
   06_dynamic_stack64 \
   07_custom_bvh_import64 \
   08_ambient_occlusion64 \
+  09_motion_blur_srt64 \
+  10_motion_blur_matrix64 \
+  11_multi_custom_intersection64 \
   13_concurrent_scene_build64 \
   14_batch_build64 \
   15_multi_level_instancing64 \
+  17_hiprt_hip64 \
   12_cutout64
 ```
 
@@ -124,9 +128,13 @@ cd tutorials/dist/bin/Release
 ./06_dynamic_stack64
 ./07_custom_bvh_import64
 ./08_ambient_occlusion64
+./09_motion_blur_srt64
+./10_motion_blur_matrix64
+./11_multi_custom_intersection64
 ./13_concurrent_scene_build64
 ./14_batch_build64
 ./15_multi_level_instancing64
+./17_hiprt_hip64
 ./12_cutout64
 ```
 
@@ -141,9 +149,13 @@ Current validated status on this branch:
 - `06_dynamic_stack64`: passed and generated `06_dynamic_stack.png`
 - `07_custom_bvh_import64`: passed and generated `07_custom_bvh_import.png`
 - `08_ambient_occlusion64`: passed and generated `08_ambient_occlusion.png`
+- `09_motion_blur_srt64`: passed and generated `09_motion_blur_srt.png`
+- `10_motion_blur_matrix64`: passed and generated `10_motion_blur_matrix.png`
+- `11_multi_custom_intersection64`: passed and generated `11_multi_custom_intersection.png`
 - `13_concurrent_scene_build64`: passed and generated `13_concurrent_scene_build.png`
 - `14_batch_build64`: passed and generated `14_batch_build.png`
 - `15_multi_level_instancing64`: passed and generated `15_multi_level_instancing.png`
+- `17_hiprt_hip64`: passed
 - `12_cutout64`: passed and generated `12_cutout.png`
 
 This path intentionally avoids the old Orochi/premake runtime-bitcode flow for the basic tutorials and instead uses the current HIPRT CUDA runtime build API directly.

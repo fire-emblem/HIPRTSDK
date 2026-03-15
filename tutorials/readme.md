@@ -36,9 +36,13 @@ Against the current HIPRT tree in `/data/HIPRT`, the following basic tutorials h
 - `06_dynamic_stack`
 - `07_custom_bvh_import`
 - `08_ambient_occlusion`
+- `09_motion_blur_srt`
+- `10_motion_blur_matrix`
+- `11_multi_custom_intersection`
 - `13_concurrent_scene_build`
 - `14_batch_build`
 - `15_multi_level_instancing`
+- `17_hiprt_hip`
 - `12_cutout`
 
 They are built through the repository-root `CMakeLists.txt` rather than the historical premake flow.
