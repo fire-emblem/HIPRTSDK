@@ -93,7 +93,7 @@ CUCC_CMAKE_ENTRY=2 \
 cmake_maca -S . -B build_basic_maca -DCMAKE_BUILD_TYPE=Release
 
 cd build_basic_maca
-make_maca -j4 00_context_creation64 01_geom_intersection64 02_scene_intersection64
+make_maca -j4 00_context_creation64 01_geom_intersection64 02_scene_intersection64 03_custom_intersection64
 ```
 
 Run them with:
@@ -105,6 +105,7 @@ cd tutorials/dist/bin/Release
 ./00_context_creation64
 ./01_geom_intersection64
 ./02_scene_intersection64
+./03_custom_intersection64
 ```
 
 Current validated status on this branch:
@@ -112,6 +113,7 @@ Current validated status on this branch:
 - `00_context_creation64`: passed
 - `01_geom_intersection64`: passed and generated `01_geom_intersection.png`
 - `02_scene_intersection64`: passed and generated `02_scene_intersection.png`
+- `03_custom_intersection64`: passed and generated `03_custom_intersection.png`
 
 This path intentionally avoids the old Orochi/premake runtime-bitcode flow for the basic tutorials and instead uses the current HIPRT CUDA runtime build API directly.
 

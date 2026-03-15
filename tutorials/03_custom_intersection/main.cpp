@@ -55,9 +55,10 @@ class Tutorial : public TutorialBase
 			aabbs[i * 2 + 0]	 = { c.x - c.w, c.y - c.w, c.z - c.w, 0.0f };
 			aabbs[i * 2 + 1]	 = { c.x + c.w, c.y + c.w, c.z + c.w, 0.0f };
 		}
-		CHECK_ORO( oroMalloc( reinterpret_cast<oroDeviceptr*>( &list.aabbs ), 2 * SphereCount * sizeof( hiprtFloat4 ) ) );
-		CHECK_ORO(
-			oroMemcpyHtoD( reinterpret_cast<oroDeviceptr>( list.aabbs ), aabbs, 2 * SphereCount * sizeof( hiprtFloat4 ) ) );
+		hiprtFloat4* dAabbs = nullptr;
+		CHECK_ORO( cudaMalloc( reinterpret_cast<void**>( &dAabbs ), 2 * SphereCount * sizeof( hiprtFloat4 ) ) );
+		list.aabbs = dAabbs;
+		CHECK_ORO( cuMemcpyHtoD( reinterpret_cast<CUdeviceptr>( list.aabbs ), aabbs, 2 * SphereCount * sizeof( hiprtFloat4 ) ) );
 
 		hiprtGeometryBuildInput geomInput;
 		geomInput.type				 = hiprtPrimitiveTypeAABBList;
@@ -69,7 +70,7 @@ class Tutorial : public TutorialBase
 		hiprtBuildOptions options;
 		options.buildFlags = hiprtBuildFlagBitPreferFastBuild;
 		CHECK_HIPRT( hiprtGetGeometryBuildTemporaryBufferSize( ctxt, geomInput, options, geomTempSize ) );
-		CHECK_ORO( oroMalloc( reinterpret_cast<oroDeviceptr*>( &geomTemp ), geomTempSize ) );
+		CHECK_ORO( cudaMalloc( reinterpret_cast<void**>( &geomTemp ), geomTempSize ) );
 
 		hiprtGeometry geom;
 		CHECK_HIPRT( hiprtCreateGeometry( ctxt, geomInput, options, geom ) );
@@ -79,31 +80,38 @@ class Tutorial : public TutorialBase
 		funcNameSet.intersectFuncName			   = "intersectSphere";
 		std::vector<hiprtFuncNameSet> funcNameSets = { funcNameSet };
 
-		hiprtFuncDataSet funcDataSet;
-		CHECK_ORO(
-			oroMalloc( const_cast<oroDeviceptr*>( &funcDataSet.intersectFuncData ), SphereCount * sizeof( hiprtFloat4 ) ) );
-		CHECK_ORO( oroMemcpyHtoD(
-			const_cast<oroDeviceptr>( funcDataSet.intersectFuncData ), spheres, SphereCount * sizeof( hiprtFloat4 ) ) );
+		hiprtFuncDataSet funcDataSet{};
+		hiprtFloat4*	   dSpheres = nullptr;
+		CHECK_ORO( cudaMalloc( reinterpret_cast<void**>( &dSpheres ), SphereCount * sizeof( hiprtFloat4 ) ) );
+		funcDataSet.intersectFuncData = dSpheres;
+		CHECK_ORO( cuMemcpyHtoD( reinterpret_cast<CUdeviceptr>( dSpheres ), spheres, SphereCount * sizeof( hiprtFloat4 ) ) );
 
 		hiprtFuncTable funcTable;
 		CHECK_HIPRT( hiprtCreateFuncTable( ctxt, 1, 1, funcTable ) );
 		CHECK_HIPRT( hiprtSetFuncTable( ctxt, funcTable, 0, 0, funcDataSet ) );
 
-		oroFunction func;
-		buildTraceKernelFromBitcode(
-			ctxt, "../common/TutorialKernels.h", "CustomIntersectionKernel", func, nullptr, &funcNameSets, 1, 1 );
+		CUfunction func = nullptr;
+		buildTraceKernel(
+			ctxt,
+			std::filesystem::path( HIPRTSDK_ROOT_DIR ) / "tutorials/common/CustomIntersectionTutorialKernels.h",
+			"CustomIntersectionKernel",
+			func,
+			nullptr,
+			&funcNameSets,
+			1,
+			1 );
 
-		uint8_t* pixels;
-		CHECK_ORO( oroMalloc( reinterpret_cast<oroDeviceptr*>( &pixels ), m_res.x * m_res.y * 4 ) );
+		uint8_t* pixels = nullptr;
+		CHECK_ORO( cudaMalloc( reinterpret_cast<void**>( &pixels ), m_res.x * m_res.y * 4 ) );
 
 		void* args[] = { &geom, &pixels, &funcTable, &m_res };
 		launchKernel( func, m_res.x, m_res.y, args );
 		writeImage( "03_custom_intersection.png", m_res.x, m_res.y, pixels );
 
-		CHECK_ORO( oroFree( const_cast<oroDeviceptr>( funcDataSet.intersectFuncData ) ) );
-		CHECK_ORO( oroFree( reinterpret_cast<oroDeviceptr>( list.aabbs ) ) );
-		CHECK_ORO( oroFree( reinterpret_cast<oroDeviceptr>( geomTemp ) ) );
-		CHECK_ORO( oroFree( reinterpret_cast<oroDeviceptr>( pixels ) ) );
+		CHECK_ORO( cudaFree( dSpheres ) );
+		CHECK_ORO( cudaFree( dAabbs ) );
+		CHECK_ORO( cudaFree( geomTemp ) );
+		CHECK_ORO( cudaFree( pixels ) );
 
 		CHECK_HIPRT( hiprtDestroyFuncTable( ctxt, funcTable ) );
 		CHECK_HIPRT( hiprtDestroyGeometry( ctxt, geom ) );
