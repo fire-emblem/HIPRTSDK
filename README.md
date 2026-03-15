@@ -103,6 +103,9 @@ make_maca -j4 \
   06_dynamic_stack64 \
   07_custom_bvh_import64 \
   08_ambient_occlusion64 \
+  13_concurrent_scene_build64 \
+  14_batch_build64 \
+  15_multi_level_instancing64 \
   12_cutout64
 ```
 
@@ -121,6 +124,9 @@ cd tutorials/dist/bin/Release
 ./06_dynamic_stack64
 ./07_custom_bvh_import64
 ./08_ambient_occlusion64
+./13_concurrent_scene_build64
+./14_batch_build64
+./15_multi_level_instancing64
 ./12_cutout64
 ```
 
@@ -135,6 +141,9 @@ Current validated status on this branch:
 - `06_dynamic_stack64`: passed and generated `06_dynamic_stack.png`
 - `07_custom_bvh_import64`: passed and generated `07_custom_bvh_import.png`
 - `08_ambient_occlusion64`: passed and generated `08_ambient_occlusion.png`
+- `13_concurrent_scene_build64`: passed and generated `13_concurrent_scene_build.png`
+- `14_batch_build64`: passed and generated `14_batch_build.png`
+- `15_multi_level_instancing64`: passed and generated `15_multi_level_instancing.png`
 - `12_cutout64`: passed and generated `12_cutout.png`
 
 This path intentionally avoids the old Orochi/premake runtime-bitcode flow for the basic tutorials and instead uses the current HIPRT CUDA runtime build API directly.

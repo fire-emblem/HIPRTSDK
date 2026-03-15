@@ -48,10 +48,10 @@ class Tutorial : public TutorialBase
 				aabbs[i * 2 + 0]	 = { c.x - c.w, c.y - c.w, c.z, 0.0f };
 				aabbs[i * 2 + 1]	 = { c.x + c.w, c.y + c.w, c.z, 0.0f };
 			}
-			CHECK_ORO(
-				oroMalloc( reinterpret_cast<oroDeviceptr*>( &list.aabbs ), 2 * list.aabbCount * sizeof( hiprtFloat4 ) ) );
-			CHECK_ORO( oroMemcpyHtoD(
-				reinterpret_cast<oroDeviceptr>( list.aabbs ), aabbs, 2 * list.aabbCount * sizeof( hiprtFloat4 ) ) );
+			hiprtFloat4* dAabbs = nullptr;
+			CHECK_ORO( cudaMalloc( reinterpret_cast<void**>( &dAabbs ), 2 * list.aabbCount * sizeof( hiprtFloat4 ) ) );
+			list.aabbs = dAabbs;
+			CHECK_ORO( cuMemcpyHtoD( reinterpret_cast<CUdeviceptr>( list.aabbs ), aabbs, 2 * list.aabbCount * sizeof( hiprtFloat4 ) ) );
 
 			geomBuildInputs[0].type				  = hiprtPrimitiveTypeAABBList;
 			geomBuildInputs[0].primitive.aabbList = list;
@@ -64,10 +64,11 @@ class Tutorial : public TutorialBase
 			mesh.triangleStride = sizeof( hiprtInt3 );
 			std::vector<int> triangleIndices( 3 * mesh.triangleCount );
 			std::iota( triangleIndices.begin(), triangleIndices.end(), 0 );
-			CHECK_ORO( oroMalloc(
-				reinterpret_cast<oroDeviceptr*>( &mesh.triangleIndices ), mesh.triangleCount * sizeof( hiprtInt3 ) ) );
-			CHECK_ORO( oroMemcpyHtoD(
-				reinterpret_cast<oroDeviceptr>( mesh.triangleIndices ),
+			hiprtInt3* dTriangleIndices = nullptr;
+			CHECK_ORO( cudaMalloc( reinterpret_cast<void**>( &dTriangleIndices ), mesh.triangleCount * sizeof( hiprtInt3 ) ) );
+			mesh.triangleIndices = dTriangleIndices;
+			CHECK_ORO( cuMemcpyHtoD(
+				reinterpret_cast<CUdeviceptr>( mesh.triangleIndices ),
 				triangleIndices.data(),
 				mesh.triangleCount * sizeof( hiprtInt3 ) ) );
 
@@ -83,10 +84,11 @@ class Tutorial : public TutorialBase
 				{ 0.65f, 0.40f, 0.0f },
 				{ 0.85f, 0.40f, 0.0f },
 				{ 0.75f, 0.60f, 0.0f } };
-			CHECK_ORO(
-				oroMalloc( reinterpret_cast<oroDeviceptr*>( &mesh.vertices ), mesh.vertexCount * sizeof( hiprtFloat3 ) ) );
-			CHECK_ORO( oroMemcpyHtoD(
-				reinterpret_cast<oroDeviceptr>( mesh.vertices ), vertices, mesh.vertexCount * sizeof( hiprtFloat3 ) ) );
+			hiprtFloat3* dVertices = nullptr;
+			CHECK_ORO( cudaMalloc( reinterpret_cast<void**>( &dVertices ), mesh.vertexCount * sizeof( hiprtFloat3 ) ) );
+			mesh.vertices = dVertices;
+			CHECK_ORO( cuMemcpyHtoD(
+				reinterpret_cast<CUdeviceptr>( mesh.vertices ), vertices, mesh.vertexCount * sizeof( hiprtFloat3 ) ) );
 
 			geomBuildInputs[1].type					  = hiprtPrimitiveTypeTriangleMesh;
 			geomBuildInputs[1].primitive.triangleMesh = mesh;
@@ -100,13 +102,13 @@ class Tutorial : public TutorialBase
 			size_t		   geomTempSize;
 			hiprtDevicePtr geomTemp;
 			CHECK_HIPRT( hiprtGetGeometriesBuildTemporaryBufferSize( ctxt, 2, geomBuildInputs, options, geomTempSize ) );
-			CHECK_ORO( oroMalloc( reinterpret_cast<oroDeviceptr*>( &geomTemp ), geomTempSize ) );
+			CHECK_ORO( cudaMalloc( reinterpret_cast<void**>( &geomTemp ), geomTempSize ) );
 
 			hiprtGeometry* geomAddrs[] = { &geoms[0], &geoms[1] };
 			CHECK_HIPRT( hiprtCreateGeometries( ctxt, 2, geomBuildInputs, options, geomAddrs ) );
 			CHECK_HIPRT(
 				hiprtBuildGeometries( ctxt, hiprtBuildOperationBuild, 2, geomBuildInputs, options, geomTemp, 0, geoms ) );
-			CHECK_ORO( oroFree( reinterpret_cast<oroDeviceptr>( geomTemp ) ) );
+			CHECK_ORO( cudaFree( geomTemp ) );
 		}
 
 		hiprtScene			 scene;
@@ -125,11 +127,11 @@ class Tutorial : public TutorialBase
 			sceneInput.instanceCount			= 2;
 			sceneInput.instanceMasks			= nullptr;
 			sceneInput.instanceTransformHeaders = nullptr;
-			CHECK_ORO( oroMalloc(
-				reinterpret_cast<oroDeviceptr*>( &sceneInput.instances ),
+			CHECK_ORO( cudaMalloc(
+				reinterpret_cast<void**>( &sceneInput.instances ),
 				sceneInput.instanceCount * sizeof( hiprtInstance ) ) );
-			CHECK_ORO( oroMemcpyHtoD(
-				reinterpret_cast<oroDeviceptr>( sceneInput.instances ),
+			CHECK_ORO( cuMemcpyHtoD(
+				reinterpret_cast<CUdeviceptr>( sceneInput.instances ),
 				instances,
 				sceneInput.instanceCount * sizeof( hiprtInstance ) ) );
 
@@ -143,11 +145,11 @@ class Tutorial : public TutorialBase
 			frames[1].rotation	  = { 0.0f, 0.0f, 1.0f, 0.0f };
 
 			sceneInput.frameCount = 2;
-			CHECK_ORO( oroMalloc(
-				reinterpret_cast<oroDeviceptr*>( &sceneInput.instanceFrames ),
+			CHECK_ORO( cudaMalloc(
+				reinterpret_cast<void**>( &sceneInput.instanceFrames ),
 				sceneInput.frameCount * sizeof( hiprtFrameSRT ) ) );
-			CHECK_ORO( oroMemcpyHtoD(
-				reinterpret_cast<oroDeviceptr>( sceneInput.instanceFrames ),
+			CHECK_ORO( cuMemcpyHtoD(
+				reinterpret_cast<CUdeviceptr>( sceneInput.instanceFrames ),
 				frames,
 				sceneInput.frameCount * sizeof( hiprtFrameSRT ) ) );
 
@@ -156,45 +158,53 @@ class Tutorial : public TutorialBase
 			hiprtBuildOptions options;
 			options.buildFlags = hiprtBuildFlagBitPreferFastBuild;
 			CHECK_HIPRT( hiprtGetSceneBuildTemporaryBufferSize( ctxt, sceneInput, options, sceneTempSize ) );
-			CHECK_ORO( oroMalloc( reinterpret_cast<oroDeviceptr*>( &sceneTemp ), sceneTempSize ) );
+			CHECK_ORO( cudaMalloc( reinterpret_cast<void**>( &sceneTemp ), sceneTempSize ) );
 
 			CHECK_HIPRT( hiprtCreateScene( ctxt, sceneInput, options, scene ) );
 			CHECK_HIPRT( hiprtBuildScene( ctxt, hiprtBuildOperationBuild, sceneInput, options, sceneTemp, 0, scene ) );
-			CHECK_ORO( oroFree( reinterpret_cast<oroDeviceptr>( sceneTemp ) ) );
+			CHECK_ORO( cudaFree( sceneTemp ) );
 		}
 
 		hiprtFuncNameSet funcNameSet;
 		funcNameSet.intersectFuncName			   = "intersectCircle";
 		std::vector<hiprtFuncNameSet> funcNameSets = { funcNameSet };
 
-		oroFunction func;
-		buildTraceKernelFromBitcode(
-			ctxt, "../common/TutorialKernels.h", "SceneBuildKernel", func, nullptr, &funcNameSets, 1, 1 );
+		CUfunction func = nullptr;
+		buildTraceKernel(
+			ctxt,
+			std::filesystem::path( HIPRTSDK_ROOT_DIR ) / "tutorials/common/SceneBuildTutorialKernels.h",
+			"SceneBuildKernel",
+			func,
+			nullptr,
+			&funcNameSets,
+			1,
+			1 );
 
 		hiprtFuncDataSet funcDataSet;
-		CHECK_ORO( oroMalloc( const_cast<void**>( &funcDataSet.intersectFuncData ), CircleCount * sizeof( hiprtFloat4 ) ) );
-		CHECK_ORO( oroMemcpyHtoD(
-			const_cast<oroDeviceptr>( funcDataSet.intersectFuncData ), circles, CircleCount * sizeof( hiprtFloat4 ) ) );
+		hiprtFloat4* dCircles = nullptr;
+		CHECK_ORO( cudaMalloc( reinterpret_cast<void**>( &dCircles ), CircleCount * sizeof( hiprtFloat4 ) ) );
+		funcDataSet.intersectFuncData = dCircles;
+		CHECK_ORO( cuMemcpyHtoD( reinterpret_cast<CUdeviceptr>( dCircles ), circles, CircleCount * sizeof( hiprtFloat4 ) ) );
 
 		hiprtFuncTable funcTable;
 		CHECK_HIPRT( hiprtCreateFuncTable( ctxt, 1, 1, funcTable ) );
 		CHECK_HIPRT( hiprtSetFuncTable( ctxt, funcTable, 0, 0, funcDataSet ) );
 
-		uint8_t* pixels;
-		CHECK_ORO( oroMalloc( reinterpret_cast<oroDeviceptr*>( &pixels ), m_res.x * m_res.y * 4 ) );
-		CHECK_ORO( oroMemset( reinterpret_cast<oroDeviceptr>( pixels ), 0, m_res.x * m_res.y * 4 ) );
+		uint8_t* pixels = nullptr;
+		CHECK_ORO( cudaMalloc( reinterpret_cast<void**>( &pixels ), m_res.x * m_res.y * 4 ) );
+		CHECK_ORO( cuMemsetD8( reinterpret_cast<CUdeviceptr>( pixels ), 0, m_res.x * m_res.y * 4 ) );
 
 		void* args[] = { &scene, &pixels, &funcTable, &m_res };
 		launchKernel( func, m_res.x, m_res.y, args );
 		writeImage( "14_batch_build.png", m_res.x, m_res.y, pixels );
 
-		CHECK_ORO( oroFree( const_cast<oroDeviceptr>( funcDataSet.intersectFuncData ) ) );
-		CHECK_ORO( oroFree( reinterpret_cast<oroDeviceptr>( sceneInput.instances ) ) );
-		CHECK_ORO( oroFree( reinterpret_cast<oroDeviceptr>( sceneInput.instanceFrames ) ) );
-		CHECK_ORO( oroFree( reinterpret_cast<oroDeviceptr>( mesh.triangleIndices ) ) );
-		CHECK_ORO( oroFree( reinterpret_cast<oroDeviceptr>( mesh.vertices ) ) );
-		CHECK_ORO( oroFree( reinterpret_cast<oroDeviceptr>( list.aabbs ) ) );
-		CHECK_ORO( oroFree( reinterpret_cast<oroDeviceptr>( pixels ) ) );
+		CHECK_ORO( cudaFree( dCircles ) );
+		CHECK_ORO( cudaFree( sceneInput.instances ) );
+		CHECK_ORO( cudaFree( sceneInput.instanceFrames ) );
+		CHECK_ORO( cudaFree( mesh.triangleIndices ) );
+		CHECK_ORO( cudaFree( mesh.vertices ) );
+		CHECK_ORO( cudaFree( list.aabbs ) );
+		CHECK_ORO( cudaFree( pixels ) );
 
 		CHECK_HIPRT( hiprtDestroyFuncTable( ctxt, funcTable ) );
 		CHECK_HIPRT( hiprtDestroyGeometries( ctxt, 2, geoms ) );

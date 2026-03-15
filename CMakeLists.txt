@@ -58,3 +58,6 @@ add_hiprtsdk_tutorial(06_dynamic_stack64 ${CMAKE_CURRENT_SOURCE_DIR}/tutorials/0
 add_hiprtsdk_tutorial(07_custom_bvh_import64 ${CMAKE_CURRENT_SOURCE_DIR}/tutorials/07_custom_bvh_import/main.cpp)
 add_hiprtsdk_tutorial(08_ambient_occlusion64 ${CMAKE_CURRENT_SOURCE_DIR}/tutorials/08_ambient_occlusion/main.cpp)
 add_hiprtsdk_tutorial(12_cutout64 ${CMAKE_CURRENT_SOURCE_DIR}/tutorials/12_cutout/main.cpp)
+add_hiprtsdk_tutorial(13_concurrent_scene_build64 ${CMAKE_CURRENT_SOURCE_DIR}/tutorials/13_concurrent_scene_build/main.cpp)
+add_hiprtsdk_tutorial(14_batch_build64 ${CMAKE_CURRENT_SOURCE_DIR}/tutorials/14_batch_build/main.cpp)
+add_hiprtsdk_tutorial(15_multi_level_instancing64 ${CMAKE_CURRENT_SOURCE_DIR}/tutorials/15_multi_level_instancing/main.cpp)
