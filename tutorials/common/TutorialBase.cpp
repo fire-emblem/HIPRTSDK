@@ -22,8 +22,46 @@
 
 #include <tutorials/common/TutorialBase.h>
 
+#include <cstdlib>
+#include <sstream>
+
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include <contrib/stbi/stbi_image_write.h>
+
+namespace
+{
+std::string quoteShellArg( const std::string& arg )
+{
+	std::string escaped = "'";
+	for ( const char ch : arg )
+	{
+		if ( ch == '\'' ) escaped += "'\\''";
+		else escaped += ch;
+	}
+	escaped += "'";
+	return escaped;
+}
+
+std::string findCudaCompiler()
+{
+	const std::vector<std::string> candidates = {
+		std::getenv( "CUDACXX" ) ? std::getenv( "CUDACXX" ) : "",
+		std::getenv( "CUDA_PATH" ) ? std::string( std::getenv( "CUDA_PATH" ) ) + "/bin/nvcc" : "",
+		"/opt/maca/tools/cu-bridge/bin/cucc",
+		"/opt/maca/tools/cu-bridge/CUDA_DIR/bin/nvcc",
+		"/root/cu-bridge/CUDA_DIR/bin/nvcc",
+		"nvcc",
+	};
+
+	for ( const auto& candidate : candidates )
+	{
+		if ( candidate.empty() ) continue;
+		if ( candidate == "nvcc" ) return candidate;
+		if ( std::filesystem::exists( candidate ) ) return candidate;
+	}
+	return {};
+}
+} // namespace
 
 void checkOro( cudaError_t res, const char* file, uint32_t line )
 {
@@ -187,7 +225,7 @@ void TutorialBase::buildTraceKernel(
 	const char* functionNamePtr = functionNameStorage.c_str();
 
 	std::vector<hiprtApiFunction> functions( 1 );
-	CHECK_HIPRT( hiprtBuildTraceKernels(
+	hiprtError buildResult = hiprtBuildTraceKernels(
 		ctxt,
 		1,
 		&functionNamePtr,
@@ -203,9 +241,69 @@ void TutorialBase::buildTraceKernel(
 		funcNameSets != nullptr ? funcNameSets->data() : nullptr,
 		functions.data(),
 		nullptr,
-		false ) );
+		false );
 
-	functionOut = *reinterpret_cast<CUfunction*>( &functions[0] );
+	if ( buildResult == hiprtSuccess )
+	{
+		functionOut = *reinterpret_cast<CUfunction*>( &functions[0] );
+		return;
+	}
+
+	if ( funcNameSets != nullptr )
+	{
+		CHECK_HIPRT( buildResult );
+	}
+
+	const std::string compiler = findCudaCompiler();
+	if ( compiler.empty() )
+	{
+		CHECK_HIPRT( buildResult );
+	}
+
+	const auto cacheKey = path.string();
+	auto	   moduleIt = m_moduleCache.find( cacheKey );
+	CUmodule   module	 = nullptr;
+	if ( moduleIt == m_moduleCache.end() )
+	{
+		const auto sdkRoot = std::filesystem::path( HIPRTSDK_ROOT_DIR );
+		const auto tempDir =
+			std::filesystem::temp_directory_path() / ( "hiprtsdk-jit-" + std::to_string( std::hash<std::string>{}( cacheKey ) ) );
+		std::filesystem::create_directories( tempDir );
+
+		const auto cubinPath = tempDir / ( path.stem().string() + ".cubin" );
+		std::ostringstream cmd;
+		cmd << quoteShellArg( compiler ) << " -x cu " << quoteShellArg( path.string() ) << " -std=c++17 -O3 -cubin --use_fast_math"
+			<< " -I" << quoteShellArg( sdkRoot.string() )
+			<< " -I" << quoteShellArg( std::string( HIPRT_ROOT_DIRECTORY ) )
+			<< " -I" << quoteShellArg( ( std::filesystem::path( HIPRT_ROOT_DIRECTORY ) / "contrib/Orochi" ).string() );
+		for ( const auto option : options )
+			cmd << " " << option;
+		cmd << " -o " << quoteShellArg( cubinPath.string() );
+
+		if ( std::system( cmd.str().c_str() ) != 0 )
+		{
+			CHECK_HIPRT( buildResult );
+		}
+
+		std::ifstream file( cubinPath, std::ios::in | std::ios::binary | std::ios::ate );
+		if ( !file.is_open() )
+		{
+			CHECK_HIPRT( buildResult );
+		}
+		const size_t size = static_cast<size_t>( file.tellg() );
+		file.seekg( 0, std::ios::beg );
+		std::string cubin( size, '\0' );
+		file.read( cubin.data(), static_cast<std::streamsize>( size ) );
+
+		CHECK_ORO( cuModuleLoadData( &module, cubin.data() ) );
+		m_moduleCache.emplace( cacheKey, module );
+	}
+	else
+	{
+		module = moduleIt->second;
+	}
+
+	CHECK_ORO( cuModuleGetFunction( &functionOut, module, functionName.c_str() ) );
 }
 
 void TutorialBase::launchKernel( CUfunction func, uint32_t nx, uint32_t ny, void** args )

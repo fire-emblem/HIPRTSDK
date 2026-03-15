@@ -26,6 +26,7 @@
 #include <cuda_runtime_api.h>
 #include <filesystem>
 #include <fstream>
+#include <map>
 #include <hiprt/hiprt.h>
 #include <nvrtc.h>
 #include <optional>
@@ -76,4 +77,5 @@ class TutorialBase
 	CUcontext				  m_cudaCtx;
 	CUdevice				  m_cudaDevice;
 	hiprtInt2				  m_res;
+	std::map<std::string, CUmodule> m_moduleCache;
 };

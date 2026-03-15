@@ -93,7 +93,16 @@ CUCC_CMAKE_ENTRY=2 \
 cmake_maca -S . -B build_basic_maca -DCMAKE_BUILD_TYPE=Release
 
 cd build_basic_maca
-make_maca -j4 00_context_creation64 01_geom_intersection64 02_scene_intersection64 03_custom_intersection64 12_cutout64
+make_maca -j4 \
+  00_context_creation64 \
+  01_geom_intersection64 \
+  02_scene_intersection64 \
+  03_custom_intersection64 \
+  04_compaction64 \
+  05_global_stack64 \
+  06_dynamic_stack64 \
+  08_ambient_occlusion64 \
+  12_cutout64
 ```
 
 Run them with:
@@ -106,6 +115,10 @@ cd tutorials/dist/bin/Release
 ./01_geom_intersection64
 ./02_scene_intersection64
 ./03_custom_intersection64
+./04_compaction64
+./05_global_stack64
+./06_dynamic_stack64
+./08_ambient_occlusion64
 ./12_cutout64
 ```
 
@@ -115,6 +128,10 @@ Current validated status on this branch:
 - `01_geom_intersection64`: passed and generated `01_geom_intersection.png`
 - `02_scene_intersection64`: passed and generated `02_scene_intersection.png`
 - `03_custom_intersection64`: passed and generated `03_custom_intersection.png`
+- `04_compaction64`: passed and generated `04_compaction.png`
+- `05_global_stack64`: passed and generated `05_global_stack.png`
+- `06_dynamic_stack64`: passed and generated `06_dynamic_stack.png`
+- `08_ambient_occlusion64`: passed and generated `08_ambient_occlusion.png`
 - `12_cutout64`: passed and generated `12_cutout.png`
 
 This path intentionally avoids the old Orochi/premake runtime-bitcode flow for the basic tutorials and instead uses the current HIPRT CUDA runtime build API directly.
