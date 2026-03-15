@@ -109,6 +109,7 @@ make_maca -j4 \
   13_concurrent_scene_build64 \
   14_batch_build64 \
   15_multi_level_instancing64 \
+  16_fluid_simulation64 \
   17_hiprt_hip64 \
   12_cutout64
 ```
@@ -134,6 +135,7 @@ cd tutorials/dist/bin/Release
 ./13_concurrent_scene_build64
 ./14_batch_build64
 ./15_multi_level_instancing64
+./16_fluid_simulation64
 ./17_hiprt_hip64
 ./12_cutout64
 ```
@@ -155,6 +157,7 @@ Current validated status on this branch:
 - `13_concurrent_scene_build64`: passed and generated `13_concurrent_scene_build.png`
 - `14_batch_build64`: passed and generated `14_batch_build.png`
 - `15_multi_level_instancing64`: passed and generated `15_multi_level_instancing.png`
+- `16_fluid_simulation64`: passed and generated `16_fluid_simulation.png`
 - `17_hiprt_hip64`: passed
 - `12_cutout64`: passed and generated `12_cutout.png`
 

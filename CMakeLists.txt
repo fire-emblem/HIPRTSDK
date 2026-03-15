@@ -65,3 +65,4 @@ add_hiprtsdk_tutorial(09_motion_blur_srt64 ${CMAKE_CURRENT_SOURCE_DIR}/tutorials
 add_hiprtsdk_tutorial(10_motion_blur_matrix64 ${CMAKE_CURRENT_SOURCE_DIR}/tutorials/10_motion_blur_matrix/main.cpp)
 add_hiprtsdk_tutorial(17_hiprt_hip64 ${CMAKE_CURRENT_SOURCE_DIR}/tutorials/17_hiprt_hip/main.cpp)
 add_hiprtsdk_tutorial(11_multi_custom_intersection64 ${CMAKE_CURRENT_SOURCE_DIR}/tutorials/11_multi_custom_intersection/main.cpp)
+add_hiprtsdk_tutorial(16_fluid_simulation64 ${CMAKE_CURRENT_SOURCE_DIR}/tutorials/16_fluid_simulation/main.cpp)

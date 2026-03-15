@@ -214,13 +214,15 @@ void TutorialBase::buildTraceKernel(
 		headers.push_back( headersData[i].c_str() );
 	}
 
-	if ( opts )
-	{
-		for ( const auto o : *opts )
-			options.push_back( o );
-	}
+		if ( opts )
+		{
+			for ( const auto o : *opts )
+				options.push_back( o );
+		}
 
-	options.push_back( "--use_fast_math" );
+		std::string tutorialInclude = "-I" + ( sdkRoot / "tutorials" ).string();
+		options.push_back( tutorialInclude.c_str() );
+		options.push_back( "--use_fast_math" );
 	std::string functionNameStorage = functionName;
 	const char* functionNamePtr = functionNameStorage.c_str();
 
@@ -249,11 +251,6 @@ void TutorialBase::buildTraceKernel(
 		return;
 	}
 
-	if ( funcNameSets != nullptr )
-	{
-		CHECK_HIPRT( buildResult );
-	}
-
 	const std::string compiler = findCudaCompiler();
 	if ( compiler.empty() )
 	{
@@ -270,10 +267,17 @@ void TutorialBase::buildTraceKernel(
 			std::filesystem::temp_directory_path() / ( "hiprtsdk-jit-" + std::to_string( std::hash<std::string>{}( cacheKey ) ) );
 		std::filesystem::create_directories( tempDir );
 
+		const auto wrapperPath = tempDir / ( path.stem().string() + ".cu" );
 		const auto cubinPath = tempDir / ( path.stem().string() + ".cubin" );
+		{
+			std::ofstream wrapper( wrapperPath, std::ios::out | std::ios::binary );
+			wrapper << "#include <hiprt/impl/hiprt_device_impl.h>\n";
+			wrapper << "#include \"" << path.string() << "\"\n";
+		}
 		std::ostringstream cmd;
-		cmd << quoteShellArg( compiler ) << " -x cu " << quoteShellArg( path.string() ) << " -std=c++17 -O3 -cubin --use_fast_math"
+		cmd << quoteShellArg( compiler ) << " -x cu " << quoteShellArg( wrapperPath.string() ) << " -std=c++17 -O3 -cubin --use_fast_math"
 			<< " -I" << quoteShellArg( sdkRoot.string() )
+			<< " -I" << quoteShellArg( ( sdkRoot / "tutorials" ).string() )
 			<< " -I" << quoteShellArg( std::string( HIPRT_ROOT_DIRECTORY ) )
 			<< " -I" << quoteShellArg( ( std::filesystem::path( HIPRT_ROOT_DIRECTORY ) / "contrib/Orochi" ).string() );
 		for ( const auto option : options )

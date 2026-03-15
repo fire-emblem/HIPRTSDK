@@ -42,6 +42,7 @@ Against the current HIPRT tree in `/data/HIPRT`, the following basic tutorials h
 - `13_concurrent_scene_build`
 - `14_batch_build`
 - `15_multi_level_instancing`
+- `16_fluid_simulation`
 - `17_hiprt_hip`
 - `12_cutout`
 
